@@ -1,0 +1,49 @@
+﻿[JavaScript:{ jsname: "JQuery" }]
+
+[JavaScript:{ path: "https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"}]
+
+[JavaScript:{ path: "https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js" }]
+[CSS:{ path: "https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.css" }]
+
+[JavaScript:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2"}]
+[CSS:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2/dist/vue-loading.min.css"}]
+
+[JavaScript:{ path: "~/Resources/Shared/scripts/dnn.jquery.js"}]
+[JavaScript:{ path: "~/DesktopModules/FinHubAddOns/scripts/ItemView.js"}]
+
+[ModuleAction:{controlKey : "Edit", securityAccessLevel : "Edit",  titleKey: "EditModule", localResourceFile: "~/DesktopModules/FinHubAddOns/App_LocalResources/View.resx" }]
+
+[AntiForgeryToken:true]
+
+<div id="Items-[ModuleContext:ModuleId]">
+    <fin-hub-add-ons v-bind:module-id="moduleId" v-bind:resx="resx" v-bind:user-id="userId"></fin-hub-add-ons>
+</div>
+
+<script type="text/x-template" id="fin-hub-add-ons-template">
+    <div class="fin-hub-add-ons-module">
+        <loading :active.sync="isLoading"
+                 :is-full-page="true"
+                 color="#3d87dd"></loading>
+    </div>
+</script>
+
+<script language="javascript" type="text/javascript">
+    jQuery(function () {
+        var moduleId = parseInt("[ModuleContext:ModuleId]");
+
+        new Vue({
+            data: {
+                moduleId: moduleId,
+                userId: "[User:UserID]" === "" ? null : Number("[User:UserID]"),
+                resx: {
+                    expandAll: '[Resx:{key:"ExpandAll"}]',
+                    collapseAll: '[Resx:{key:"CollapseAll"}]'
+                }
+            },
+            el: "#Items-" + moduleId,
+            components: {
+                "fin-hub-add-ons": FinHubAddOns.FinHubAddOnsComponent
+            }
+        });
+    });
+</script>

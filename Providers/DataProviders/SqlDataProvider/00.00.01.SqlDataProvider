@@ -1,0 +1,24 @@
+﻿/*
+
+-- для дат нужно использовать тип DATETIME2(7)
+
+IF (NOT EXISTS (SELECT * 
+                 FROM INFORMATION_SCHEMA.TABLES 
+                 WHERE TABLE_SCHEMA = 'dbo' 
+                 AND TABLE_NAME = 'названиеТаблицы'))
+BEGIN
+	CREATE TABLE [dbo].[названиеТаблицы]
+	(
+		[Id] INT NOT NULL IDENTITY(1, 1),
+		[PortalId] INT NOT NULL
+	);
+
+	ALTER TABLE [dbo].[названиеТаблицы]
+	ADD CONSTRAINT [PK_названиеТаблицы] PRIMARY KEY CLUSTERED ([Id]);
+
+	ALTER TABLE [dbo].[названиеТаблицы]
+	ADD CONSTRAINT [FK_названиеТаблицы_названиеДругойТаблицы] FOREIGN KEY ([внешнийКлюч])
+		REFERENCES [названиеДругойТаблицы] ([первичныйКлючДругойТаблицы]);
+END
+
+*/
