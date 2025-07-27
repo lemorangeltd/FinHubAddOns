@@ -1,0 +1,16 @@
+﻿<dotnetnuke type="ResourceFile" version="5.0">
+  <files>
+    <file>
+      <path />
+      <name>module.css</name>
+    </file>
+    <file>
+      <path />
+      <name>ServiceProviderView.js</name>
+    </file>
+    <file>
+      <path />
+      <name>View.html</name>
+    </file>
+  </files>
+</dotnetnuke>

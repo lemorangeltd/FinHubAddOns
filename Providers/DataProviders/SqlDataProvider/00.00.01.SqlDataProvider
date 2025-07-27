@@ -1,24 +1,75 @@
-﻿/*
+﻿-- Create stored procedure for getting Service Provider users
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinHubAddOns_GetServiceProviderUsers')
+    DROP PROCEDURE [dbo].[FinHubAddOns_GetServiceProviderUsers]
+GO
 
--- для дат нужно использовать тип DATETIME2(7)
-
-IF (NOT EXISTS (SELECT * 
-                 FROM INFORMATION_SCHEMA.TABLES 
-                 WHERE TABLE_SCHEMA = 'dbo' 
-                 AND TABLE_NAME = 'названиеТаблицы'))
+CREATE PROCEDURE [dbo].[FinHubAddOns_GetServiceProviderUsers]
+    @PortalID int
+AS
 BEGIN
-	CREATE TABLE [dbo].[названиеТаблицы]
-	(
-		[Id] INT NOT NULL IDENTITY(1, 1),
-		[PortalId] INT NOT NULL
-	);
-
-	ALTER TABLE [dbo].[названиеТаблицы]
-	ADD CONSTRAINT [PK_названиеТаблицы] PRIMARY KEY CLUSTERED ([Id]);
-
-	ALTER TABLE [dbo].[названиеТаблицы]
-	ADD CONSTRAINT [FK_названиеТаблицы_названиеДругойТаблицы] FOREIGN KEY ([внешнийКлюч])
-		REFERENCES [названиеДругойТаблицы] ([первичныйКлючДругойТаблицы]);
+    SET NOCOUNT ON;
+    
+    SELECT DISTINCT 
+        -- Basic User Info
+        u.UserID,
+        u.Username,
+        u.FirstName,
+        u.LastName,
+        u.Email,
+        u.DisplayName,
+        
+        -- Role Information
+        ur.EffectiveDate AS RoleStartDate,
+        ur.ExpiryDate AS RoleExpirationDate,
+        ur.IsOwner AS IsRoleOwner,
+        
+        -- Account Status & Dates
+        u.CreatedOnDate AS AccountCreated,
+        u.LastModifiedOnDate AS AccountLastModified,
+        up.CreatedDate AS PortalJoinDate,
+        up.Authorised AS IsAuthorized,
+        u.IsSuperUser,
+        
+        -- Address Information
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Street' AND PortalID = @PortalID)) AS Street,
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'City' AND PortalID = @PortalID)) AS City,
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Region' AND PortalID = @PortalID)) AS State_Region,
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'PostalCode' AND PortalID = @PortalID)) AS PostalCode,
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID)) AS Country,
+        
+        -- Contact Info
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Telephone' AND PortalID = @PortalID)) AS Phone,
+        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Cell' AND PortalID = @PortalID)) AS Mobile,
+        
+        -- Calculate days in role
+        DATEDIFF(day, ur.EffectiveDate, GETDATE()) AS DaysInRole,
+        
+        -- Other Roles
+        STUFF((SELECT ', ' + r2.RoleName
+               FROM UserRoles ur2 
+               INNER JOIN Roles r2 ON ur2.RoleID = r2.RoleID
+               WHERE ur2.UserID = u.UserID 
+               AND r2.PortalID = @PortalID
+               AND r2.RoleName != 'Service Provider'
+               AND (ur2.ExpiryDate IS NULL OR ur2.ExpiryDate > GETDATE())
+               FOR XML PATH('')), 1, 2, '') AS OtherRoles
+    FROM Users u
+        INNER JOIN UserRoles ur ON u.UserID = ur.UserID
+        INNER JOIN Roles r ON ur.RoleID = r.RoleID
+        INNER JOIN UserPortals up ON u.UserID = up.UserID
+    WHERE r.RoleName = 'Service Provider'
+        AND r.PortalID = @PortalID
+        AND up.PortalID = @PortalID
+        AND ur.EffectiveDate <= GETDATE()
+        AND (ur.ExpiryDate IS NULL OR ur.ExpiryDate > GETDATE())
+        AND up.Authorised = 1
+    ORDER BY u.Username
 END
-
-*/
+GO

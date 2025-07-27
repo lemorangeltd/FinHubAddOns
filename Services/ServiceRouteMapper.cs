@@ -1,5 +1,4 @@
 ﻿using DotNetNuke.Web.Api;
-using System.Web.Http;
 
 namespace Lemorange.Modules.FinHubAddOns.Services
 {
@@ -8,11 +7,11 @@ namespace Lemorange.Modules.FinHubAddOns.Services
         public void RegisterRoutes(IMapRoute mapRouteManager)
         {
             mapRouteManager.MapHttpRoute(
-                moduleFolderName: "FinHubAddOns",
-                routeName: "rpc",
-                url: "{controller}/{action}/{itemId}",
-                defaults: new { itemId = RouteParameter.Optional },
-                namespaces: new[] { "Lemorange.Modules.FinHubAddOns.Services" });
+                "FinHubAddOns",
+                "default",
+                "{controller}/{action}",
+                new[] { "Lemorange.Modules.FinHubAddOns.Services" }
+            );
         }
     }
 }

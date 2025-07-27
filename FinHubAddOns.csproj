@@ -33,6 +33,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -41,6 +42,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetNuke, Version=9.8.0.0, Culture=neutral, processorArchitecture=MSIL">
@@ -99,13 +101,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="App_LocalResources\Edit.resx" />
-    <Content Include="App_LocalResources\Settings.resx" />
-    <Content Include="App_LocalResources\View.resx" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="BuildScripts\ModulePackage.targets" />
-    <Content Include="BuildScripts\MSBuild.Community.Tasks.Targets" />
     <Content Include="Providers\DataProviders\SqlDataProvider\00.00.01.SqlDataProvider" />
     <Content Include="Providers\DataProviders\SqlDataProvider\Uninstall.SqlDataProvider" />
   </ItemGroup>
@@ -114,30 +109,26 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Components\FeatureController.cs" />
-    <Compile Include="Components\IItemRepository.cs" />
-    <Compile Include="Components\ItemRepository.cs" />
-    <Content Include="Scripts\ItemEdit.js" />
-    <Content Include="Scripts\ItemView.js" />
-    <Content Include="Scripts\QuickSettings.js" />
+    <Compile Include="Components\IUserRoleRepository.cs" />
+    <Compile Include="Components\UserRoleRepository.cs" />
+    <Compile Include="Services\UserRoleController.cs" />
+    <Compile Include="Models\ServiceProviderUser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Services\ItemController.cs" />
     <Compile Include="Services\ServiceRouteMapper.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Documentation\Documentation.css" />
-    <Content Include="Documentation\Documentation.html" />
-    <Content Include="Edit.html" />
     <Content Include="License.txt" />
     <Content Include="module.css" />
     <Content Include="ReleaseNotes.txt" />
-    <Content Include="Settings.html" />
+    <Content Include="Scripts\ServiceProviderView.js" />
     <Content Include="View.html" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
     <VisualStudio>
@@ -164,9 +155,70 @@
     <Extension>zip</Extension>
     <DNNFileName>FinHubAddOns</DNNFileName>
     <PackageName>FinHubAddOns</PackageName>
-    <MSBuildCommunityTasksPath>$(SolutionDir)\BuildScripts</MSBuildCommunityTasksPath>
+    <ModuleVersion>01.00.00</ModuleVersion>
   </PropertyGroup>
-  <Import Project="BuildScripts\ModulePackage.Targets" />
-  <Target Name="AfterBuild" DependsOnTargets="PackageModule">
+  
+  <!-- DNN Module Packaging using built-in MSBuild tasks -->
+  <Target Name="PackageModule" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <!-- Create temporary package directory -->
+    <PropertyGroup>
+      <PackageDir>$(MSBuildProjectDirectory)\Package</PackageDir>
+      <InstallDir>$(MSBuildProjectDirectory)\Install</InstallDir>
+      <ResourcesDir>$(MSBuildProjectDirectory)\ResourcesTemp</ResourcesDir>
+    </PropertyGroup>
+    
+    <!-- Clean directories -->
+    <RemoveDir Directories="$(PackageDir)" />
+    <RemoveDir Directories="$(ResourcesDir)" />
+    <MakeDir Directories="$(PackageDir)" />
+    <MakeDir Directories="$(ResourcesDir)" />
+    
+    <!-- Create Install directory if it doesn't exist -->
+    <MakeDir Directories="$(InstallDir)" Condition="!Exists('$(InstallDir)')" />
+    
+    <!-- Define resource files for Resources.zip (MODULE FILES ONLY) -->
+    <ItemGroup>
+      <ResourceFiles Include="View.html" />
+      <ResourceFiles Include="module.css" />
+      <ResourceFiles Include="Scripts\**\*.*" />
+      <!-- Any other module-specific resources like images, fonts, etc. -->
+    </ItemGroup>
+    
+    <!-- Copy resource files to temp directory maintaining structure -->
+    <Copy SourceFiles="@(ResourceFiles)" 
+          DestinationFiles="$(ResourcesDir)\%(RecursiveDir)%(Filename)%(Extension)" />
+    
+    <!-- Create Resources.zip -->
+    <Exec Command="powershell Compress-Archive -Path '$(ResourcesDir)\*' -DestinationPath '$(PackageDir)\Resources.zip' -Force" />
+    
+    <!-- Copy files that go to PACKAGE ROOT -->
+    <Copy SourceFiles="$(DNNFileName).dnn" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="License.txt" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="ReleaseNotes.txt" DestinationFolder="$(PackageDir)" />
+    
+    <!-- Copy SQL files maintaining folder structure -->
+    <ItemGroup>
+      <SqlFiles Include="Providers\DataProviders\SqlDataProvider\*.SqlDataProvider" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SqlFiles)" 
+          DestinationFiles="$(PackageDir)\Providers\DataProviders\SqlDataProvider\%(Filename)%(Extension)" />
+    
+    <!-- Copy assembly to bin folder -->
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" 
+          DestinationFolder="$(PackageDir)\bin" />
+    
+    <!-- Create the install package in the Install folder -->
+    <Exec Command="powershell Compress-Archive -Path '$(PackageDir)\*' -DestinationPath '$(InstallDir)\$(DNNFileName)_$(ModuleVersion)_Install.$(Extension)' -Force" />
+    
+    <!-- Clean up -->
+    <RemoveDir Directories="$(PackageDir)" />
+    <RemoveDir Directories="$(ResourcesDir)" />
+    
+    <Message Text="Created DNN installation package: Install\$(DNNFileName)_$(ModuleVersion)_Install.$(Extension)" Importance="high" />
   </Target>
+  
+  <!-- Add Install folder to project -->
+  <ItemGroup>
+    <Folder Include="Install\" />
+  </ItemGroup>
 </Project>

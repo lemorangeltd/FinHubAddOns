@@ -1,29 +1,214 @@
 ﻿[JavaScript:{ jsname: "JQuery" }]
-
 [JavaScript:{ path: "https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"}]
-
 [JavaScript:{ path: "https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js" }]
 [CSS:{ path: "https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.css" }]
-
 [JavaScript:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2"}]
 [CSS:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2/dist/vue-loading.min.css"}]
-
 [JavaScript:{ path: "~/Resources/Shared/scripts/dnn.jquery.js"}]
-[JavaScript:{ path: "~/DesktopModules/FinHubAddOns/scripts/ItemView.js"}]
-
-[ModuleAction:{controlKey : "Edit", securityAccessLevel : "Edit",  titleKey: "EditModule", localResourceFile: "~/DesktopModules/FinHubAddOns/App_LocalResources/View.resx" }]
+[JavaScript:{ path: "~/DesktopModules/FinHubAddOns/scripts/ServiceProviderView.js"}]
+[CSS:{ path: "~/DesktopModules/FinHubAddOns/module.css"}]
 
 [AntiForgeryToken:true]
 
-<div id="Items-[ModuleContext:ModuleId]">
-    <fin-hub-add-ons v-bind:module-id="moduleId" v-bind:resx="resx" v-bind:user-id="userId"></fin-hub-add-ons>
+<div id="ServiceProvider-[ModuleContext:ModuleId]">
+    <service-provider-manager v-bind:module-id="moduleId"></service-provider-manager>
 </div>
 
-<script type="text/x-template" id="fin-hub-add-ons-template">
-    <div class="fin-hub-add-ons-module">
-        <loading :active.sync="isLoading"
-                 :is-full-page="true"
-                 color="#3d87dd"></loading>
+<script type="text/x-template" id="service-provider-template">
+    <div class="sp-manager">
+        <loading :active.sync="isLoading" :is-full-page="false" color="#3d87dd"></loading>
+        
+        <div class="sp-header">
+            <h2>Service Provider Role Management</h2>
+            <button @click="refreshData" class="dnnPrimaryAction">
+                <span class="refresh-icon">↻</span> Refresh
+            </button>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="sp-filters">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Search:</label>
+                    <input v-model="filters.search" @input="applyFilters" 
+                           placeholder="Name, email, username..." class="filter-input">
+                </div>
+                
+                <div class="filter-group">
+                    <label>City:</label>
+                    <select v-model="filters.city" @change="applyFilters" class="filter-select">
+                        <option value="">All Cities</option>
+                        <option v-for="city in uniqueCities" :key="city" :value="city">{{city}}</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>State/Region:</label>
+                    <select v-model="filters.state" @change="applyFilters" class="filter-select">
+                        <option value="">All States</option>
+                        <option v-for="state in uniqueStates" :key="state" :value="state">{{state}}</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Country:</label>
+                    <select v-model="filters.country" @change="applyFilters" class="filter-select">
+                        <option value="">All Countries</option>
+                        <option v-for="country in uniqueCountries" :key="country" :value="country">{{country}}</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Days in Role:</label>
+                    <select v-model="filters.daysInRole" @change="applyFilters" class="filter-select">
+                        <option value="">Any</option>
+                        <option value="30">< 30 days</option>
+                        <option value="90">< 90 days</option>
+                        <option value="180">< 180 days</option>
+                        <option value="365">< 1 year</option>
+                        <option value="365+">1+ years</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Expiration Status:</label>
+                    <select v-model="filters.expirationStatus" @change="applyFilters" class="filter-select">
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="expiring30">Expiring in 30 days</option>
+                        <option value="expired">Expired</option>
+                        <option value="never">Never Expires</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Has Other Roles:</label>
+                    <select v-model="filters.hasOtherRoles" @change="applyFilters" class="filter-select">
+                        <option value="">All</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+                
+                <button @click="clearFilters" class="dnnSecondaryAction">Clear Filters</button>
+            </div>
+            
+            <div class="filter-summary">
+                Showing {{filteredUsers.length}} of {{users.length}} users
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="sp-table-container">
+            <table class="sp-table">
+                <thead>
+                    <tr>
+                        <th @click="sortBy('displayName')" class="sortable">
+                            Name <span class="sort-icon">{{getSortIcon('displayName')}}</span>
+                        </th>
+                        <th @click="sortBy('username')" class="sortable">
+                            Username <span class="sort-icon">{{getSortIcon('username')}}</span>
+                        </th>
+                        <th @click="sortBy('email')" class="sortable">
+                            Email <span class="sort-icon">{{getSortIcon('email')}}</span>
+                        </th>
+                        <th>Location</th>
+                        <th>Contact</th>
+                        <th @click="sortBy('roleStartDate')" class="sortable">
+                            Role Start <span class="sort-icon">{{getSortIcon('roleStartDate')}}</span>
+                        </th>
+                        <th @click="sortBy('roleExpirationDate')" class="sortable">
+                            Expiration <span class="sort-icon">{{getSortIcon('roleExpirationDate')}}</span>
+                        </th>
+                        <th @click="sortBy('daysInRole')" class="sortable">
+                            Days <span class="sort-icon">{{getSortIcon('daysInRole')}}</span>
+                        </th>
+                        <th>Other Roles</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="user in paginatedUsers" :key="user.userId" :class="getRowClass(user)">
+                        <td>
+                            <strong>{{user.displayName}}</strong>
+                            <div class="sub-text">{{user.firstName}} {{user.lastName}}</div>
+                        </td>
+                        <td>{{user.username}}</td>
+                        <td>
+                            <a :href="'mailto:' + user.email">{{user.email}}</a>
+                        </td>
+                        <td>
+                            <div v-if="user.city || user.stateRegion || user.country">
+                                {{user.city}}<span v-if="user.city && user.stateRegion">, </span>{{user.stateRegion}}
+                                <div v-if="user.country" class="sub-text">{{user.country}}</div>
+                            </div>
+                            <span v-else class="no-data">-</span>
+                        </td>
+                        <td>
+                            <div v-if="user.phone">📞 {{user.phone}}</div>
+                            <div v-if="user.mobile">📱 {{user.mobile}}</div>
+                            <span v-if="!user.phone && !user.mobile" class="no-data">-</span>
+                        </td>
+                        <td>{{formatDate(user.roleStartDate)}}</td>
+                        <td>
+                            <div v-if="editingExpiration === user.userId" class="expiration-edit">
+                                <input type="date" v-model="newExpirationDate" class="date-input">
+                                <button @click="saveExpiration(user)" class="btn-save" title="Save">✓</button>
+                                <button @click="cancelExpiration" class="btn-cancel" title="Cancel">✗</button>
+                            </div>
+                            <div v-else @click="startEditExpiration(user)" class="editable-date" :class="getExpirationClass(user)">
+                                {{formatExpiration(user.roleExpirationDate)}}
+                                <span class="edit-icon">✏️</span>
+                            </div>
+                        </td>
+                        <td>{{user.daysInRole}}</td>
+                        <td>
+                            <div v-if="user.otherRoles" class="other-roles" :title="user.otherRoles">
+                                {{truncateRoles(user.otherRoles)}}
+                            </div>
+                            <span v-else class="no-data">-</span>
+                        </td>
+                        <td>
+                            <button @click="confirmRemoveUser(user)" class="btn-remove" title="Remove from Role">
+                                🗑️ Remove
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="sp-pagination">
+            <button @click="currentPage = 1" :disabled="currentPage === 1" class="page-btn">«</button>
+            <button @click="currentPage--" :disabled="currentPage === 1" class="page-btn">‹</button>
+            
+            <span class="page-info">Page {{currentPage}} of {{totalPages}}</span>
+            
+            <button @click="currentPage++" :disabled="currentPage === totalPages" class="page-btn">›</button>
+            <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="page-btn">»</button>
+            
+            <select v-model="pageSize" @change="currentPage = 1" class="page-size">
+                <option value="10">10 per page</option>
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+            </select>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div v-if="showConfirmModal" class="modal-overlay" @click="cancelRemove">
+            <div class="modal-content" @click.stop>
+                <h3>Confirm Removal</h3>
+                <p>Are you sure you want to remove <strong>{{userToRemove.displayName}}</strong> from the Service Provider role?</p>
+                <div class="modal-actions">
+                    <button @click="removeUser" class="dnnPrimaryAction">Yes, Remove</button>
+                    <button @click="cancelRemove" class="dnnSecondaryAction">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
 </script>
 
@@ -33,16 +218,11 @@
 
         new Vue({
             data: {
-                moduleId: moduleId,
-                userId: "[User:UserID]" === "" ? null : Number("[User:UserID]"),
-                resx: {
-                    expandAll: '[Resx:{key:"ExpandAll"}]',
-                    collapseAll: '[Resx:{key:"CollapseAll"}]'
-                }
+                moduleId: moduleId
             },
-            el: "#Items-" + moduleId,
+            el: "#ServiceProvider-" + moduleId,
             components: {
-                "fin-hub-add-ons": FinHubAddOns.FinHubAddOnsComponent
+                "service-provider-manager": FinHubAddOns.ServiceProviderComponent
             }
         });
     });
