@@ -20,9 +20,29 @@
         
         <div class="sp-header">
             <h2>Service Provider Role Management</h2>
-            <button @click="refreshData" class="dnnPrimaryAction">
+            <button type="button" @click="refreshData" class="dnnPrimaryAction">
                 <span class="refresh-icon">↻</span> Refresh
             </button>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="sp-statistics">
+            <div class="stat-card warning clickable" @click="filterByExpiring">
+                <div class="stat-number">{{expiringIn30Days}}</div>
+                <div class="stat-label">Expiring in 30 days</div>
+            </div>
+            <div class="stat-card clickable" @click="clearFilters">
+                <div class="stat-number">{{users.length}}</div>
+                <div class="stat-label">Total Service Providers</div>
+            </div>
+            <div class="stat-card clickable" @click="filterByActive">
+                <div class="stat-number">{{activeUsers}}</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-card danger clickable" @click="filterByExpired">
+                <div class="stat-number">{{expiredUsers}}</div>
+                <div class="stat-label">Expired</div>
+            </div>
         </div>
 
         <!-- Filters Section -->
@@ -83,16 +103,7 @@
                     </select>
                 </div>
                 
-                <div class="filter-group">
-                    <label>Has Other Roles:</label>
-                    <select v-model="filters.hasOtherRoles" @change="applyFilters" class="filter-select">
-                        <option value="">All</option>
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                    </select>
-                </div>
-                
-                <button @click="clearFilters" class="dnnSecondaryAction">Clear Filters</button>
+                <button type="button" @click="clearFilters" class="dnnSecondaryAction">Clear Filters</button>
             </div>
             
             <div class="filter-summary">
@@ -105,75 +116,76 @@
             <table class="sp-table">
                 <thead>
                     <tr>
-                        <th @click="sortBy('displayName')" class="sortable">
-                            Name <span class="sort-icon">{{getSortIcon('displayName')}}</span>
+                        <th @click="sortBy('DisplayName')" class="sortable">
+                            Name <span class="sort-icon">{{getSortIcon('DisplayName')}}</span>
                         </th>
-                        <th @click="sortBy('username')" class="sortable">
-                            Username <span class="sort-icon">{{getSortIcon('username')}}</span>
+                        <th @click="sortBy('Username')" class="sortable">
+                            Username <span class="sort-icon">{{getSortIcon('Username')}}</span>
                         </th>
-                        <th @click="sortBy('email')" class="sortable">
-                            Email <span class="sort-icon">{{getSortIcon('email')}}</span>
+                        <th @click="sortBy('Email')" class="sortable">
+                            Email <span class="sort-icon">{{getSortIcon('Email')}}</span>
                         </th>
                         <th>Location</th>
                         <th>Contact</th>
-                        <th @click="sortBy('roleStartDate')" class="sortable">
-                            Role Start <span class="sort-icon">{{getSortIcon('roleStartDate')}}</span>
+                        <th @click="sortBy('RoleStartDate')" class="sortable">
+                            Role Start <span class="sort-icon">{{getSortIcon('RoleStartDate')}}</span>
                         </th>
-                        <th @click="sortBy('roleExpirationDate')" class="sortable">
-                            Expiration <span class="sort-icon">{{getSortIcon('roleExpirationDate')}}</span>
+                        <th @click="sortBy('RoleExpirationDate')" class="sortable">
+                            Expiration <span class="sort-icon">{{getSortIcon('RoleExpirationDate')}}</span>
                         </th>
-                        <th @click="sortBy('daysInRole')" class="sortable">
-                            Days <span class="sort-icon">{{getSortIcon('daysInRole')}}</span>
+                        <th @click="sortBy('DaysInRole')" class="sortable">
+                            Days <span class="sort-icon">{{getSortIcon('DaysInRole')}}</span>
                         </th>
-                        <th>Other Roles</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="user in paginatedUsers" :key="user.userId" :class="getRowClass(user)">
+                    <tr v-for="user in paginatedUsers" :key="user.UserId" :class="getRowClass(user)">
                         <td>
-                            <strong>{{user.displayName}}</strong>
-                            <div class="sub-text">{{user.firstName}} {{user.lastName}}</div>
+                            <strong>{{user.DisplayName}}</strong>
+                            <div class="sub-text">{{user.FirstName}} {{user.LastName}}</div>
                         </td>
-                        <td>{{user.username}}</td>
+                        <td>{{user.Username}}</td>
                         <td>
-                            <a :href="'mailto:' + user.email">{{user.email}}</a>
+                            <a :href="'mailto:' + user.Email">{{user.Email}}</a>
                         </td>
                         <td>
-                            <div v-if="user.city || user.stateRegion || user.country">
-                                {{user.city}}<span v-if="user.city && user.stateRegion">, </span>{{user.stateRegion}}
-                                <div v-if="user.country" class="sub-text">{{user.country}}</div>
+                            <div v-if="user.City || user.StateRegion || user.Country">
+                                {{user.City}}<span v-if="user.City && user.StateRegion">, </span>{{user.StateRegion}}
+                                <div v-if="user.Country" class="sub-text">{{user.Country}}</div>
                             </div>
                             <span v-else class="no-data">-</span>
                         </td>
                         <td>
-                            <div v-if="user.phone">📞 {{user.phone}}</div>
-                            <div v-if="user.mobile">📱 {{user.mobile}}</div>
-                            <span v-if="!user.phone && !user.mobile" class="no-data">-</span>
+                            <div v-if="user.Phone">📞 {{user.Phone}}</div>
+                            <div v-if="user.Mobile">📱 {{user.Mobile}}</div>
+                            <span v-if="!user.Phone && !user.Mobile" class="no-data">-</span>
                         </td>
-                        <td>{{formatDate(user.roleStartDate)}}</td>
+                        <td>{{formatDate(user.RoleStartDate)}}</td>
                         <td>
-                            <div v-if="editingExpiration === user.userId" class="expiration-edit">
+                            <div v-if="editingExpiration === user.UserId" class="expiration-edit">
                                 <input type="date" v-model="newExpirationDate" class="date-input">
-                                <button @click="saveExpiration(user)" class="btn-save" title="Save">✓</button>
-                                <button @click="cancelExpiration" class="btn-cancel" title="Cancel">✗</button>
+                                <button type="button" @click="saveExpiration(user)" class="btn-save" title="Save">✓</button>
+                                <button type="button" @click="cancelExpiration" class="btn-cancel" title="Cancel">✗</button>
                             </div>
                             <div v-else @click="startEditExpiration(user)" class="editable-date" :class="getExpirationClass(user)">
-                                {{formatExpiration(user.roleExpirationDate)}}
+                                {{formatExpiration(user.RoleExpirationDate)}}
                                 <span class="edit-icon">✏️</span>
                             </div>
                         </td>
-                        <td>{{user.daysInRole}}</td>
+                        <td>{{user.DaysInRole}}</td>
                         <td>
-                            <div v-if="user.otherRoles" class="other-roles" :title="user.otherRoles">
-                                {{truncateRoles(user.otherRoles)}}
+                            <div class="action-dropdown">
+                                <button type="button" @click="toggleActionMenu(user.UserId)" class="action-dots">⋮</button>
+                                <div v-if="actionMenuOpen === user.UserId" class="action-menu">
+                                    <a @click="editUser(user)" class="action-item">
+                                        <span class="action-icon">✏️</span> Edit User
+                                    </a>
+                                    <a @click="confirmRemoveUser(user)" class="action-item danger">
+                                        <span class="action-icon">🗑️</span> Remove from Role
+                                    </a>
+                                </div>
                             </div>
-                            <span v-else class="no-data">-</span>
-                        </td>
-                        <td>
-                            <button @click="confirmRemoveUser(user)" class="btn-remove" title="Remove from Role">
-                                🗑️ Remove
-                            </button>
                         </td>
                     </tr>
                 </tbody>
@@ -182,13 +194,13 @@
 
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="sp-pagination">
-            <button @click="currentPage = 1" :disabled="currentPage === 1" class="page-btn">«</button>
-            <button @click="currentPage--" :disabled="currentPage === 1" class="page-btn">‹</button>
+            <button type="button" @click="currentPage = 1" :disabled="currentPage === 1" class="page-btn">«</button>
+            <button type="button" @click="currentPage--" :disabled="currentPage === 1" class="page-btn">‹</button>
             
             <span class="page-info">Page {{currentPage}} of {{totalPages}}</span>
             
-            <button @click="currentPage++" :disabled="currentPage === totalPages" class="page-btn">›</button>
-            <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="page-btn">»</button>
+            <button type="button" @click="currentPage++" :disabled="currentPage === totalPages" class="page-btn">›</button>
+            <button type="button" @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="page-btn">»</button>
             
             <select v-model="pageSize" @change="currentPage = 1" class="page-size">
                 <option value="10">10 per page</option>
@@ -202,10 +214,10 @@
         <div v-if="showConfirmModal" class="modal-overlay" @click="cancelRemove">
             <div class="modal-content" @click.stop>
                 <h3>Confirm Removal</h3>
-                <p>Are you sure you want to remove <strong>{{userToRemove.displayName}}</strong> from the Service Provider role?</p>
+                <p>Are you sure you want to remove <strong>{{userToRemove.DisplayName}}</strong> from the Service Provider role?</p>
                 <div class="modal-actions">
-                    <button @click="removeUser" class="dnnPrimaryAction">Yes, Remove</button>
-                    <button @click="cancelRemove" class="dnnSecondaryAction">Cancel</button>
+                    <button type="button" @click="removeUser" class="dnnPrimaryAction">Yes, Remove</button>
+                    <button type="button" @click="cancelRemove" class="dnnSecondaryAction">Cancel</button>
                 </div>
             </div>
         </div>
@@ -223,6 +235,16 @@
             el: "#ServiceProvider-" + moduleId,
             components: {
                 "service-provider-manager": FinHubAddOns.ServiceProviderComponent
+            }
+        });
+
+        // Close action menus when clicking outside
+        jQuery(document).on('click', function (e) {
+            if (!jQuery(e.target).closest('.action-dropdown').length) {
+                var vm = Vue.prototype._vueInstances && Vue.prototype._vueInstances[0];
+                if (vm && vm.$children[0]) {
+                    vm.$children[0].actionMenuOpen = null;
+                }
             }
         });
     });

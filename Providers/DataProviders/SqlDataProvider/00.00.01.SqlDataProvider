@@ -39,8 +39,11 @@ BEGIN
             (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Region' AND PortalID = @PortalID)) AS State_Region,
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
             (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'PostalCode' AND PortalID = @PortalID)) AS PostalCode,
-        (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
-            (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID)) AS Country,
+        -- Get Country text from Lists table
+        (SELECT Text FROM Lists WHERE EntryID = 
+            CAST((SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+                (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID)) AS INT)
+        ) AS Country,
         
         -- Contact Info
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 

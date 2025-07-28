@@ -84,24 +84,34 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                 if (user == null)
                     return false;
 
-                // Get the user role
+                // Get the user role info
                 var userRole = roleController.GetUserRole(portalId, userId, role.RoleID);
                 if (userRole == null)
                     return false;
 
-                // Update the expiration date using SQL directly
-                var expiryDate = expirationDate ?? DateTime.MaxValue;
-                DataProvider.Instance().ExecuteNonQuery(
-                    "UPDATE UserRoles SET ExpiryDate = @0, LastModifiedOnDate = GETDATE(), LastModifiedByUserID = @1 WHERE UserID = @2 AND RoleID = @3",
-                    expiryDate, modifiedByUserId, userId, role.RoleID);
+                // Create updated user role info
+                var userRoleInfo = new UserRoleInfo
+                {
+                    UserID = userId,
+                    RoleID = role.RoleID,
+                    RoleName = role.RoleName,
+                    PortalID = portalId,
+                    EffectiveDate = userRole.EffectiveDate,
+                    ExpiryDate = expirationDate ?? DateTime.MaxValue,
+                    IsOwner = userRole.IsOwner,
+                    Status = RoleStatus.Approved
+                };
 
-                // Clear the cache
-                DataCache.RemoveCache("UserRoles");
+                // Remove and re-add the role with new expiration
+                var portalSettings = new DotNetNuke.Entities.Portals.PortalSettings(portalId);
+                RoleController.DeleteUserRole(user, role, portalSettings, false);
+                RoleController.AddUserRole(user, role, portalSettings, RoleStatus.Approved, userRole.EffectiveDate, expirationDate ?? DateTime.MaxValue, false, false);
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
                 return false;
             }
         }

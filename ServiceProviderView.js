@@ -21,10 +21,10 @@ FinHubAddOns.ServiceProviderComponent = {
 
             // Pagination
             currentPage: 1,
-            pageSize: 25,
+            pageSize: 100,
 
             // Sorting
-            sortColumn: 'displayName',
+            sortColumn: 'DisplayName',
             sortDirection: 'asc',
 
             // Filters
@@ -34,8 +34,7 @@ FinHubAddOns.ServiceProviderComponent = {
                 state: '',
                 country: '',
                 daysInRole: '',
-                expirationStatus: '',
-                hasOtherRoles: ''
+                expirationStatus: ''
             },
 
             // Unique values for filters
@@ -69,6 +68,34 @@ FinHubAddOns.ServiceProviderComponent = {
             var start = (this.currentPage - 1) * this.pageSize;
             var end = start + this.pageSize;
             return this.filteredUsers.slice(start, end);
+        },
+
+        expiringIn30Days: function () {
+            var today = new Date();
+            var thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+            return this.users.filter(function (user) {
+                if (!user.RoleExpirationDate) return false;
+                var expDate = new Date(user.RoleExpirationDate);
+                return expDate > today && expDate <= thirtyDaysFromNow;
+            }).length;
+        },
+
+        activeUsers: function () {
+            var today = new Date();
+            return this.users.filter(function (user) {
+                if (!user.RoleExpirationDate) return true;
+                return new Date(user.RoleExpirationDate) > today;
+            }).length;
+        },
+
+        expiredUsers: function () {
+            var today = new Date();
+            return this.users.filter(function (user) {
+                if (!user.RoleExpirationDate) return false;
+                return new Date(user.RoleExpirationDate) <= today;
+            }).length;
         }
     },
 
@@ -104,16 +131,12 @@ FinHubAddOns.ServiceProviderComponent = {
             self.isLoading = true;
 
             self.get("GetServiceProviders").done(function (response) {
-                if (!response.success) {
-                    toastr.error(response.message || "Error loading users");
-                    return;
-                }
-
-                self.users = response.data;
+                self.users = response;
                 self.extractUniqueValues();
                 self.applyFilters();
-
-            }).fail(function () {
+            }).fail(function (xhr, status, error) {
+                console.error("API Error:", status, error);
+                console.error("Response:", xhr.responseText);
                 toastr.error("Error: Unable to load Service Provider users");
             }).always(function () {
                 self.isLoading = false;
@@ -130,9 +153,15 @@ FinHubAddOns.ServiceProviderComponent = {
             var countries = new Set();
 
             this.users.forEach(function (user) {
-                if (user.city) cities.add(user.city);
-                if (user.stateRegion) states.add(user.stateRegion);
-                if (user.country) countries.add(user.country);
+                // Normalize city names to handle case differences
+                if (user.City) {
+                    var normalizedCity = user.City.trim();
+                    // Store both original and normalized
+                    cities.add(normalizedCity);
+                    user.NormalizedCity = normalizedCity;
+                }
+                if (user.StateRegion) states.add(user.StateRegion);
+                if (user.Country) countries.add(user.Country);
             });
 
             this.uniqueCities = Array.from(cities).sort();
@@ -148,30 +177,30 @@ FinHubAddOns.ServiceProviderComponent = {
             if (this.filters.search) {
                 var search = this.filters.search.toLowerCase();
                 filtered = filtered.filter(function (user) {
-                    return (user.displayName && user.displayName.toLowerCase().includes(search)) ||
-                        (user.username && user.username.toLowerCase().includes(search)) ||
-                        (user.email && user.email.toLowerCase().includes(search)) ||
-                        (user.firstName && user.firstName.toLowerCase().includes(search)) ||
-                        (user.lastName && user.lastName.toLowerCase().includes(search));
+                    return (user.DisplayName && user.DisplayName.toLowerCase().includes(search)) ||
+                        (user.Username && user.Username.toLowerCase().includes(search)) ||
+                        (user.Email && user.Email.toLowerCase().includes(search)) ||
+                        (user.FirstName && user.FirstName.toLowerCase().includes(search)) ||
+                        (user.LastName && user.LastName.toLowerCase().includes(search));
                 });
             }
 
             // Location filters
             if (this.filters.city) {
                 filtered = filtered.filter(function (user) {
-                    return user.city === self.filters.city;
+                    return user.City === self.filters.city;
                 });
             }
 
             if (this.filters.state) {
                 filtered = filtered.filter(function (user) {
-                    return user.stateRegion === self.filters.state;
+                    return user.StateRegion === self.filters.state;
                 });
             }
 
             if (this.filters.country) {
                 filtered = filtered.filter(function (user) {
-                    return user.country === self.filters.country;
+                    return user.Country === self.filters.country;
                 });
             }
 
@@ -179,10 +208,10 @@ FinHubAddOns.ServiceProviderComponent = {
             if (this.filters.daysInRole) {
                 filtered = filtered.filter(function (user) {
                     if (self.filters.daysInRole === '365+') {
-                        return user.daysInRole > 365;
+                        return user.DaysInRole > 365;
                     } else {
                         var days = parseInt(self.filters.daysInRole);
-                        return user.daysInRole < days;
+                        return user.DaysInRole < days;
                     }
                 });
             }
@@ -194,11 +223,11 @@ FinHubAddOns.ServiceProviderComponent = {
                 thirtyDaysFromNow.setDate(today.getDate() + 30);
 
                 filtered = filtered.filter(function (user) {
-                    if (!user.roleExpirationDate) {
+                    if (!user.RoleExpirationDate) {
                         return self.filters.expirationStatus === 'never';
                     }
 
-                    var expDate = new Date(user.roleExpirationDate);
+                    var expDate = new Date(user.RoleExpirationDate);
 
                     switch (self.filters.expirationStatus) {
                         case 'active':
@@ -210,14 +239,6 @@ FinHubAddOns.ServiceProviderComponent = {
                         case 'never':
                             return false;
                     }
-                });
-            }
-
-            // Other roles filter
-            if (this.filters.hasOtherRoles) {
-                filtered = filtered.filter(function (user) {
-                    var hasRoles = user.otherRoles && user.otherRoles.length > 0;
-                    return self.filters.hasOtherRoles === 'yes' ? hasRoles : !hasRoles;
                 });
             }
 
@@ -250,8 +271,7 @@ FinHubAddOns.ServiceProviderComponent = {
                 state: '',
                 country: '',
                 daysInRole: '',
-                expirationStatus: '',
-                hasOtherRoles: ''
+                expirationStatus: ''
             };
             this.applyFilters();
         },
@@ -274,7 +294,10 @@ FinHubAddOns.ServiceProviderComponent = {
         formatDate: function (dateString) {
             if (!dateString) return '-';
             var date = new Date(dateString);
-            return date.toLocaleDateString();
+            var day = ('0' + date.getDate()).slice(-2);
+            var month = ('0' + (date.getMonth() + 1)).slice(-2);
+            var year = date.getFullYear();
+            return day + '/' + month + '/' + year;
         },
 
         formatExpiration: function (dateString) {
@@ -283,10 +306,10 @@ FinHubAddOns.ServiceProviderComponent = {
         },
 
         getRowClass: function (user) {
-            if (!user.roleExpirationDate) return '';
+            if (!user.RoleExpirationDate) return '';
 
             var today = new Date();
-            var expDate = new Date(user.roleExpirationDate);
+            var expDate = new Date(user.RoleExpirationDate);
             var daysUntilExpiration = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
 
             if (expDate <= today) return 'expired-row';
@@ -295,10 +318,10 @@ FinHubAddOns.ServiceProviderComponent = {
         },
 
         getExpirationClass: function (user) {
-            if (!user.roleExpirationDate) return '';
+            if (!user.RoleExpirationDate) return '';
 
             var today = new Date();
-            var expDate = new Date(user.roleExpirationDate);
+            var expDate = new Date(user.RoleExpirationDate);
             var daysUntilExpiration = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
 
             if (expDate <= today) return 'expired';
@@ -306,16 +329,10 @@ FinHubAddOns.ServiceProviderComponent = {
             return '';
         },
 
-        truncateRoles: function (roles) {
-            if (!roles) return '';
-            if (roles.length <= 50) return roles;
-            return roles.substring(0, 47) + '...';
-        },
-
         startEditExpiration: function (user) {
-            this.editingExpiration = user.userId;
-            if (user.roleExpirationDate) {
-                var date = new Date(user.roleExpirationDate);
+            this.editingExpiration = user.UserId;
+            if (user.RoleExpirationDate) {
+                var date = new Date(user.RoleExpirationDate);
                 this.newExpirationDate = date.toISOString().split('T')[0];
             } else {
                 // Default to 1 year from today
@@ -335,20 +352,17 @@ FinHubAddOns.ServiceProviderComponent = {
             self.isLoading = true;
 
             var data = {
-                userId: user.userId,
+                userId: user.UserId,
                 expirationDate: this.newExpirationDate || null
             };
 
             self.post("UpdateRoleExpiration", data).done(function (response) {
-                if (response.success) {
-                    toastr.success("Expiration date updated successfully");
-                    self.cancelExpiration();
-                    self.loadData();
-                } else {
-                    toastr.error(response.message || "Error updating expiration date");
-                }
-            }).fail(function () {
-                toastr.error("Error: Unable to update expiration date");
+                toastr.success("Expiration date updated successfully");
+                self.cancelExpiration();
+                self.loadData();
+            }).fail(function (xhr, status, error) {
+                console.error("Update Error:", xhr.responseText);
+                toastr.error("Error updating expiration date");
             }).always(function () {
                 self.isLoading = false;
             });
@@ -369,19 +383,16 @@ FinHubAddOns.ServiceProviderComponent = {
             self.isLoading = true;
 
             var data = {
-                userId: this.userToRemove.userId
+                userId: this.userToRemove.UserId
             };
 
-            self.post("RemoveFromRole", data).done(function (response) {
-                if (response.success) {
-                    toastr.success("User removed from Service Provider role");
-                    self.cancelRemove();
-                    self.loadData();
-                } else {
-                    toastr.error(response.message || "Error removing user from role");
-                }
-            }).fail(function () {
-                toastr.error("Error: Unable to remove user from role");
+            self.post("RemoveUserFromRole", data).done(function (response) {
+                toastr.success("User removed from Service Provider role");
+                self.cancelRemove();
+                self.loadData();
+            }).fail(function (xhr, status, error) {
+                console.error("Remove Error:", xhr.responseText);
+                toastr.error("Error removing user from role");
             }).always(function () {
                 self.isLoading = false;
             });

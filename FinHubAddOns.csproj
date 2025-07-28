@@ -128,7 +128,9 @@
     <Content Include="Scripts\ServiceProviderView.js" />
     <Content Include="View.html" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Install\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
     <VisualStudio>
@@ -157,7 +159,6 @@
     <PackageName>FinHubAddOns</PackageName>
     <ModuleVersion>01.00.00</ModuleVersion>
   </PropertyGroup>
-  
   <!-- DNN Module Packaging using built-in MSBuild tasks -->
   <Target Name="PackageModule" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <!-- Create temporary package directory -->
@@ -166,16 +167,13 @@
       <InstallDir>$(MSBuildProjectDirectory)\Install</InstallDir>
       <ResourcesDir>$(MSBuildProjectDirectory)\ResourcesTemp</ResourcesDir>
     </PropertyGroup>
-    
     <!-- Clean directories -->
     <RemoveDir Directories="$(PackageDir)" />
     <RemoveDir Directories="$(ResourcesDir)" />
     <MakeDir Directories="$(PackageDir)" />
     <MakeDir Directories="$(ResourcesDir)" />
-    
     <!-- Create Install directory if it doesn't exist -->
     <MakeDir Directories="$(InstallDir)" Condition="!Exists('$(InstallDir)')" />
-    
     <!-- Define resource files for Resources.zip (MODULE FILES ONLY) -->
     <ItemGroup>
       <ResourceFiles Include="View.html" />
@@ -183,42 +181,28 @@
       <ResourceFiles Include="Scripts\**\*.*" />
       <!-- Any other module-specific resources like images, fonts, etc. -->
     </ItemGroup>
-    
     <!-- Copy resource files to temp directory maintaining structure -->
-    <Copy SourceFiles="@(ResourceFiles)" 
-          DestinationFiles="$(ResourcesDir)\%(RecursiveDir)%(Filename)%(Extension)" />
-    
+    <Copy SourceFiles="@(ResourceFiles)" DestinationFiles="$(ResourcesDir)\%(RecursiveDir)%(Filename)%(Extension)" />
     <!-- Create Resources.zip -->
     <Exec Command="powershell Compress-Archive -Path '$(ResourcesDir)\*' -DestinationPath '$(PackageDir)\Resources.zip' -Force" />
-    
     <!-- Copy files that go to PACKAGE ROOT -->
     <Copy SourceFiles="$(DNNFileName).dnn" DestinationFolder="$(PackageDir)" />
     <Copy SourceFiles="License.txt" DestinationFolder="$(PackageDir)" />
     <Copy SourceFiles="ReleaseNotes.txt" DestinationFolder="$(PackageDir)" />
-    
     <!-- Copy SQL files maintaining folder structure -->
     <ItemGroup>
       <SqlFiles Include="Providers\DataProviders\SqlDataProvider\*.SqlDataProvider" />
     </ItemGroup>
-    <Copy SourceFiles="@(SqlFiles)" 
-          DestinationFiles="$(PackageDir)\Providers\DataProviders\SqlDataProvider\%(Filename)%(Extension)" />
-    
+    <Copy SourceFiles="@(SqlFiles)" DestinationFiles="$(PackageDir)\Providers\DataProviders\SqlDataProvider\%(Filename)%(Extension)" />
     <!-- Copy assembly to bin folder -->
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" 
-          DestinationFolder="$(PackageDir)\bin" />
-    
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PackageDir)\bin" />
     <!-- Create the install package in the Install folder -->
     <Exec Command="powershell Compress-Archive -Path '$(PackageDir)\*' -DestinationPath '$(InstallDir)\$(DNNFileName)_$(ModuleVersion)_Install.$(Extension)' -Force" />
-    
     <!-- Clean up -->
     <RemoveDir Directories="$(PackageDir)" />
     <RemoveDir Directories="$(ResourcesDir)" />
-    
     <Message Text="Created DNN installation package: Install\$(DNNFileName)_$(ModuleVersion)_Install.$(Extension)" Importance="high" />
   </Target>
-  
   <!-- Add Install folder to project -->
-  <ItemGroup>
-    <Folder Include="Install\" />
-  </ItemGroup>
+  <ItemGroup />
 </Project>
