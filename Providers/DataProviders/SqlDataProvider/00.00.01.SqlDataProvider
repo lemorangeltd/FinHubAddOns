@@ -1,4 +1,62 @@
-﻿-- Create stored procedure for getting Service Provider users
+﻿-- Create Subscription Plans table
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinSubscriptionPlans]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[FinSubscriptionPlans](
+        [PlanID] [int] IDENTITY(1,1) NOT NULL,
+        [PlanName] [nvarchar](100) NOT NULL,
+        [PlanType] [nvarchar](50) NOT NULL, -- 'ServiceProvider', 'User', 'Both'
+        [Description] [nvarchar](500) NULL,
+        [Amount] [decimal](10, 2) NOT NULL,
+        [Currency] [nvarchar](3) DEFAULT ('EUR'),
+        [DurationMonths] [int] NOT NULL DEFAULT (12),
+        [IsActive] [bit] NOT NULL DEFAULT (1),
+        [SortOrder] [int] DEFAULT (0),
+        [CreatedDate] [datetime] NOT NULL DEFAULT (GETDATE()),
+        [CreatedByUserID] [int] NULL,
+        [LastModifiedDate] [datetime] NULL,
+        [LastModifiedByUserID] [int] NULL,
+        CONSTRAINT [PK_FinSubscriptionPlans] PRIMARY KEY CLUSTERED ([PlanID] ASC)
+    )
+END
+GO
+
+-- Create Payments table
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinPayments]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[FinPayments](
+        [PaymentID] [int] IDENTITY(1,1) NOT NULL,
+        [UserID] [int] NOT NULL,
+        [PaymentType] [nvarchar](50) NOT NULL, -- 'ServiceProvider', 'ProjectSubmitter', 'Other'
+        [PlanID] [int] NULL,
+        -- Payment Details
+        [Amount] [decimal](10, 2) NOT NULL,
+        [Currency] [nvarchar](3) DEFAULT ('EUR'),
+        [PaymentDate] [datetime] NOT NULL,
+        [PaymentMethod] [nvarchar](50) NULL, -- 'BankTransfer', 'Cash', 'Cheque', 'Online'
+        [ReferenceNumber] [nvarchar](100) NULL,
+        -- Subscription Period
+        [SubscriptionStartDate] [datetime] NULL,
+        [SubscriptionEndDate] [datetime] NULL,
+        -- Status
+        [Status] [nvarchar](20) NOT NULL DEFAULT ('Active'), -- 'Active', 'Expired', 'Cancelled', 'Pending'
+        -- Invoice
+        [InvoiceNumber] [nvarchar](50) NULL,
+        [InvoiceFileName] [nvarchar](255) NULL,
+        [InvoiceFilePath] [nvarchar](500) NULL,
+        -- Metadata
+        [PortalID] [int] NOT NULL,
+        [Notes] [nvarchar](MAX) NULL,
+        [CreatedDate] [datetime] NOT NULL DEFAULT (GETDATE()),
+        [CreatedByUserID] [int] NOT NULL,
+        [LastModifiedDate] [datetime] NULL,
+        [LastModifiedByUserID] [int] NULL,
+        CONSTRAINT [PK_FinPayments] PRIMARY KEY CLUSTERED ([PaymentID] ASC),
+        CONSTRAINT [FK_FinPayments_Plans] FOREIGN KEY([PlanID]) REFERENCES [dbo].[FinSubscriptionPlans] ([PlanID])
+    )
+END
+GO
+
+
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinHubAddOns_GetServiceProviderUsers')
     DROP PROCEDURE [dbo].[FinHubAddOns_GetServiceProviderUsers]
 GO
@@ -39,11 +97,17 @@ BEGIN
             (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Region' AND PortalID = @PortalID)) AS State_Region,
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
             (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'PostalCode' AND PortalID = @PortalID)) AS PostalCode,
-        -- Get Country text from Lists table
-        (SELECT Text FROM Lists WHERE EntryID = 
-            CAST((SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
-                (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID)) AS INT)
-        ) AS Country,
+        
+        -- Country - Handle both text and ID references
+        CASE 
+            WHEN ISNUMERIC((SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+                (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID))) = 1
+            THEN (SELECT Text FROM Lists WHERE EntryID = 
+                CAST((SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+                    (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID)) AS INT))
+            ELSE (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
+                (SELECT PropertyDefinitionID FROM ProfilePropertyDefinition WHERE PropertyName = 'Country' AND PortalID = @PortalID))
+        END AS Country,
         
         -- Contact Info
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
@@ -62,7 +126,39 @@ BEGIN
                AND r2.PortalID = @PortalID
                AND r2.RoleName != 'Service Provider'
                AND (ur2.ExpiryDate IS NULL OR ur2.ExpiryDate > GETDATE())
-               FOR XML PATH('')), 1, 2, '') AS OtherRoles
+               FOR XML PATH('')), 1, 2, '') AS OtherRoles,
+               
+        -- Payment Status
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 FROM FinPayments p 
+                WHERE p.UserID = u.UserID 
+                AND p.PaymentType = 'ServiceProvider'
+                AND p.Status = 'Active' 
+                AND p.SubscriptionEndDate >= GETDATE()
+                AND p.PortalID = @PortalID
+            ) THEN 'Paid'
+            ELSE 'Unpaid'
+        END AS PaymentStatus,
+        
+        -- Latest Payment Info
+        (SELECT TOP 1 p.SubscriptionEndDate 
+         FROM FinPayments p 
+         WHERE p.UserID = u.UserID 
+         AND p.PaymentType = 'ServiceProvider'
+         AND p.Status = 'Active'
+         AND p.PortalID = @PortalID
+         ORDER BY p.SubscriptionEndDate DESC) AS SubscriptionEndDate,
+         
+        (SELECT TOP 1 sp.PlanName 
+         FROM FinPayments p
+         INNER JOIN FinSubscriptionPlans sp ON p.PlanID = sp.PlanID
+         WHERE p.UserID = u.UserID 
+         AND p.PaymentType = 'ServiceProvider'
+         AND p.Status = 'Active'
+         AND p.PortalID = @PortalID
+         ORDER BY p.SubscriptionEndDate DESC) AS CurrentPlan
+         
     FROM Users u
         INNER JOIN UserRoles ur ON u.UserID = ur.UserID
         INNER JOIN Roles r ON ur.RoleID = r.RoleID
@@ -74,5 +170,52 @@ BEGIN
         AND (ur.ExpiryDate IS NULL OR ur.ExpiryDate > GETDATE())
         AND up.Authorised = 1
     ORDER BY u.Username
+END
+GO
+
+-- Add check constraint for valid payment statuses
+IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_FinPayments_Status')
+BEGIN
+    ALTER TABLE FinPayments
+    ADD CONSTRAINT CK_FinPayments_Status 
+    CHECK (Status IN ('Active', 'Expired', 'Cancelled', 'Refunded', 'Pending', 'Completed'))
+END
+GO
+
+-- Create stored procedures for payments
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinPayments_GetSubscriptionPlans')
+    DROP PROCEDURE [dbo].[FinPayments_GetSubscriptionPlans]
+GO
+
+CREATE PROCEDURE [dbo].[FinPayments_GetSubscriptionPlans]
+    @PlanType nvarchar(50) = NULL
+AS
+BEGIN
+    SELECT 
+        PlanID,
+        PlanName,
+        PlanType,
+        Description,
+        Amount,
+        Currency,
+        DurationMonths,
+        IsActive,
+        SortOrder
+    FROM FinSubscriptionPlans
+    WHERE IsActive = 1
+    AND (@PlanType IS NULL OR PlanType = @PlanType OR PlanType = 'Both')
+    ORDER BY SortOrder, PlanName
+END
+GO
+
+-- Insert default subscription plans
+IF NOT EXISTS (SELECT * FROM FinSubscriptionPlans)
+BEGIN
+    INSERT INTO FinSubscriptionPlans (PlanName, PlanType, Description, Amount, Currency, DurationMonths, SortOrder)
+    VALUES 
+    ('Service Provider Annual', 'ServiceProvider', 'Annual subscription for service providers', 500.00, 'EUR', 12, 1),
+    ('Service Provider Semi-Annual', 'ServiceProvider', 'Semi-annual subscription for service providers', 300.00, 'EUR', 6, 2),
+    ('Project Submitter Annual', 'User', 'Annual subscription for project submitters', 200.00, 'EUR', 12, 3),
+    ('Project Submitter Monthly', 'User', 'Monthly subscription for project submitters', 25.00, 'EUR', 1, 4)
 END
 GO

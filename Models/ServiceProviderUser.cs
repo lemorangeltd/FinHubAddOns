@@ -23,6 +23,7 @@ namespace Lemorange.Modules.FinHubAddOns.Models
         public DateTime? PortalJoinDate { get; set; }
         public bool IsAuthorized { get; set; }
         public bool IsSuperUser { get; set; }
+        public bool IsDeleted { get; set; }  
 
         // Address Information
         public string Street { get; set; }
@@ -38,5 +39,11 @@ namespace Lemorange.Modules.FinHubAddOns.Models
         // Calculated Fields
         public int DaysInRole { get; set; }
         public string OtherRoles { get; set; }
+
+        // Payment Information
+        public string PaymentStatus { get; set; }
+        public DateTime? SubscriptionEndDate { get; set; }
+        public string CurrentPlan { get; set; }
+     
     }
 }

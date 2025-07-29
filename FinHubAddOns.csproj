@@ -110,7 +110,9 @@
   <ItemGroup>
     <Compile Include="Components\FeatureController.cs" />
     <Compile Include="Components\IUserRoleRepository.cs" />
+    <Compile Include="Components\PaymentRepository.cs" />
     <Compile Include="Components\UserRoleRepository.cs" />
+    <Compile Include="Models\PaymentModels.cs" />
     <Compile Include="Services\UserRoleController.cs" />
     <Compile Include="Models\ServiceProviderUser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -46,6 +46,23 @@ FinHubAddOns.ServiceProviderComponent = {
             editingExpiration: null,
             newExpirationDate: '',
 
+            // Edit user modal
+            editingUser: null,
+            editForm: {
+                firstName: '',
+                lastName: '',
+                displayName: '',
+                email: '',
+                phone: '',
+                mobile: '',
+                street: '',
+                city: '',
+                stateRegion: '',
+                postalCode: '',
+                country: '',
+                roleExpirationDate: ''
+            },
+
             // Confirmation modal
             showConfirmModal: false,
             userToRemove: null,
@@ -362,8 +379,96 @@ FinHubAddOns.ServiceProviderComponent = {
 
         editUser: function (user) {
             this.actionMenuOpen = null;
-            // Navigate to DNN user edit page
-            window.location.href = '/Admin/User-Accounts/ctl/Edit/mid/370/UserId/' + user.UserId + '?popUp=true';
+            this.editingUser = user;
+
+            // Populate edit form with user data
+            this.editForm = {
+                firstName: user.FirstName || '',
+                lastName: user.LastName || '',
+                displayName: user.DisplayName || '',
+                email: user.Email || '',
+                phone: user.Phone || '',
+                mobile: user.Mobile || '',
+                street: user.Street || '',
+                city: user.City || '',
+                stateRegion: user.StateRegion || '',
+                postalCode: user.PostalCode || '',
+                country: user.Country || '',
+                roleExpirationDate: ''
+            };
+
+            // Set role expiration date if exists
+            if (user.RoleExpirationDate) {
+                var date = new Date(user.RoleExpirationDate);
+                var year = date.getFullYear();
+                var month = ('0' + (date.getMonth() + 1)).slice(-2);
+                var day = ('0' + date.getDate()).slice(-2);
+                this.editForm.roleExpirationDate = year + '-' + month + '-' + day;
+            }
+        },
+
+        cancelEdit: function () {
+            this.editingUser = null;
+            this.editForm = {
+                firstName: '',
+                lastName: '',
+                displayName: '',
+                email: '',
+                phone: '',
+                mobile: '',
+                street: '',
+                city: '',
+                stateRegion: '',
+                postalCode: '',
+                country: '',
+                roleExpirationDate: ''
+            };
+        },
+
+        saveUserEdit: function () {
+            var self = this;
+
+            // Currently, only role expiration date can be updated
+            // To update other fields, additional API endpoints would need to be created
+            if (this.editForm.roleExpirationDate !== '') {
+                self.isLoading = true;
+
+                var data = {
+                    UserId: this.editingUser.UserId,
+                    ExpirationDate: this.editForm.roleExpirationDate || null
+                };
+
+                self.post("UpdateRoleExpiration", data).done(function (response) {
+                    toastr.success("Role expiration date updated successfully");
+                    self.cancelEdit();
+                    self.loadData();
+                }).fail(function (xhr, status, error) {
+                    console.error("Update Error:", xhr.responseText);
+                    toastr.error("Error updating expiration date");
+                }).always(function () {
+                    self.isLoading = false;
+                });
+            } else {
+                toastr.info("Please set an expiration date to save changes");
+            }
+        },
+
+        insertPayment: function (user) {
+            this.actionMenuOpen = null;
+            // Add your payment insertion logic here
+            // For example, open a payment modal or redirect to payment page
+            toastr.info("Insert Payment functionality for " + user.DisplayName + " - Coming soon!");
+            // You can implement this based on your payment system
+            // window.location.href = '/payment/insert?userId=' + user.UserId;
+        },
+
+        viewPaymentHistory: function (user) {
+            this.actionMenuOpen = null;
+            // Add your payment history logic here
+            // For example, open a modal or redirect to history page
+            toastr.info("Payment History for " + user.DisplayName + " - Coming soon!");
+            // You can implement this based on your payment system
+            // window.location.href = '/payment/history?userId=' + user.UserId;
         },
 
         startEditExpiration: function (user) {
@@ -400,8 +505,6 @@ FinHubAddOns.ServiceProviderComponent = {
                 ExpirationDate: this.newExpirationDate || null
             };
 
-            console.log("Sending data:", data); // Debug log
-
             self.post("UpdateRoleExpiration", data).done(function (response) {
                 toastr.success("Expiration date updated successfully");
                 self.cancelExpiration();
@@ -437,7 +540,7 @@ FinHubAddOns.ServiceProviderComponent = {
             self.isLoading = true;
 
             var data = {
-                UserId: this.userToRemove.UserId  // Changed from userId to UserId
+                UserId: this.userToRemove.UserId
             };
 
             self.post("RemoveUserFromRole", data).done(function (response) {

@@ -60,7 +60,12 @@ namespace Lemorange.Modules.FinHubAddOns.Components
 
                         // Calculated Fields
                         DaysInRole = dr["DaysInRole"] != DBNull.Value ? Convert.ToInt32(dr["DaysInRole"]) : 0,
-                        OtherRoles = dr["OtherRoles"] != DBNull.Value ? dr["OtherRoles"].ToString() : string.Empty
+                        OtherRoles = dr["OtherRoles"] != DBNull.Value ? dr["OtherRoles"].ToString() : string.Empty,
+
+                        // Payment Information
+                        PaymentStatus = dr["PaymentStatus"] != DBNull.Value ? dr["PaymentStatus"].ToString() : "Unpaid",
+                        SubscriptionEndDate = dr["SubscriptionEndDate"] != DBNull.Value ? Convert.ToDateTime(dr["SubscriptionEndDate"]) : (DateTime?)null,
+                        CurrentPlan = dr["CurrentPlan"] != DBNull.Value ? dr["CurrentPlan"].ToString() : string.Empty
                     });
                 }
             }
