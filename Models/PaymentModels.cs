@@ -22,6 +22,7 @@ namespace Lemorange.Modules.FinHubAddOns.Models
         public string PaymentType { get; set; }
         public int? PlanID { get; set; }
         public decimal Amount { get; set; }
+        public decimal DiscountAmount { get; set; }
         public string Currency { get; set; }
         public DateTime PaymentDate { get; set; }
         public string PaymentMethod { get; set; }
@@ -48,6 +49,7 @@ namespace Lemorange.Modules.FinHubAddOns.Models
         public string PaymentType { get; set; }
         public int? PlanID { get; set; }
         public decimal Amount { get; set; }
+        public decimal DiscountAmount { get; set; }
         public DateTime PaymentDate { get; set; }
         public DateTime SubscriptionStartDate { get; set; }
         public DateTime SubscriptionEndDate { get; set; }

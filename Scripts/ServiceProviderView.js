@@ -68,7 +68,41 @@ FinHubAddOns.ServiceProviderComponent = {
             userToRemove: null,
 
             // Action menu
-            actionMenuOpen: null
+            actionMenuOpen: null,
+
+            // Payment modal
+            showPaymentModal: false,
+            paymentForm: {
+                userId: null,
+                userName: '',
+                planId: null,
+                amount: 0,
+                discountAmount: 0,
+                amountPaid: 0,
+                paymentDate: new Date().toISOString().split('T')[0],
+                paymentMethod: 'BankTransfer',
+                referenceNumber: '',
+                notes: '',
+                subscriptionStartDate: new Date().toISOString().split('T')[0],
+                subscriptionEndDate: ''
+            },
+            subscriptionPlans: [],
+
+            // Payment history modal
+            showPaymentHistoryModal: false,
+            paymentHistory: [],
+            viewingPaymentHistoryUser: null,
+
+            // Payment statistics
+            paymentStats: {
+                totalPayments: 0,
+                totalRevenue: 0,
+                totalNetRevenue: 0,
+                paymentsThisMonth: 0,
+                revenueThisMonth: 0,
+                paymentsThisYear: 0,
+                revenueThisYear: 0
+            }
         };
     },
 
@@ -121,6 +155,8 @@ FinHubAddOns.ServiceProviderComponent = {
 
     created: function () {
         this.loadData();
+        this.loadSubscriptionPlans();
+        this.loadPaymentStatistics();
     },
 
     methods: {
@@ -326,6 +362,18 @@ FinHubAddOns.ServiceProviderComponent = {
         },
 
         getRowClass: function (user) {
+            // Check payment status first
+            if (user.PaymentStatus === 'Unpaid') {
+                // Check if role is expired
+                if (user.RoleExpirationDate) {
+                    var today = new Date();
+                    var expDate = new Date(user.RoleExpirationDate);
+                    if (expDate <= today) {
+                        return 'expired-row';
+                    }
+                }
+            }
+
             if (!user.RoleExpirationDate) return '';
 
             var today = new Date();
@@ -455,20 +503,193 @@ FinHubAddOns.ServiceProviderComponent = {
 
         insertPayment: function (user) {
             this.actionMenuOpen = null;
-            // Add your payment insertion logic here
-            // For example, open a payment modal or redirect to payment page
-            toastr.info("Insert Payment functionality for " + user.DisplayName + " - Coming soon!");
-            // You can implement this based on your payment system
-            // window.location.href = '/payment/insert?userId=' + user.UserId;
+            this.paymentForm = {
+                userId: user.UserId,
+                userName: user.DisplayName,
+                planId: null,
+                amount: 0,
+                discountAmount: 0,
+                amountPaid: 0,
+                paymentDate: new Date().toISOString().split('T')[0],
+                paymentMethod: 'BankTransfer',
+                referenceNumber: '',
+                notes: '',
+                subscriptionStartDate: new Date().toISOString().split('T')[0],
+                subscriptionEndDate: ''
+            };
+
+            // Set default end date based on current subscription
+            if (user.SubscriptionEndDate) {
+                var currentEnd = new Date(user.SubscriptionEndDate);
+                if (currentEnd > new Date()) {
+                    // If subscription is still active, start from its end date
+                    this.paymentForm.subscriptionStartDate = new Date(currentEnd.getTime() + 86400000).toISOString().split('T')[0];
+                }
+            }
+
+            this.showPaymentModal = true;
         },
 
         viewPaymentHistory: function (user) {
             this.actionMenuOpen = null;
-            // Add your payment history logic here
-            // For example, open a modal or redirect to history page
-            toastr.info("Payment History for " + user.DisplayName + " - Coming soon!");
-            // You can implement this based on your payment system
-            // window.location.href = '/payment/history?userId=' + user.UserId;
+            this.viewingPaymentHistoryUser = user;
+            this.loadPaymentHistory(user.UserId);
+        },
+
+        loadSubscriptionPlans: function () {
+            var self = this;
+            self.get("GetSubscriptionPlans", { planType: 'ServiceProvider' }).done(function (response) {
+                self.subscriptionPlans = response;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading subscription plans:", xhr.responseText);
+            });
+        },
+
+        loadPaymentStatistics: function () {
+            var self = this;
+            self.get("GetPaymentStatistics").done(function (response) {
+                self.paymentStats = {
+                    totalPayments: response.totalPayments || 0,
+                    totalRevenue: response.totalRevenue || 0,
+                    totalNetRevenue: response.totalNetRevenue || 0,
+                    paymentsThisMonth: response.monthlyRevenue || 0,
+                    revenueThisMonth: response.monthlyRevenue || 0,
+                    paymentsThisYear: response.yearlyRevenue || 0,
+                    revenueThisYear: response.yearlyRevenue || 0
+                };
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading payment statistics:", xhr.responseText);
+            });
+        },
+
+        loadPaymentHistory: function (userId) {
+            var self = this;
+            self.isLoading = true;
+
+            self.get("GetPaymentHistory", { userId: userId, paymentType: 'ServiceProvider' }).done(function (response) {
+                self.paymentHistory = response;
+                self.showPaymentHistoryModal = true;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading payment history:", xhr.responseText);
+                toastr.error("Error loading payment history");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        selectPlan: function (plan) {
+            this.paymentForm.planId = plan.PlanID;
+            this.paymentForm.amount = plan.Amount;
+            this.calculateAmountPaid();
+
+            // Calculate end date based on plan duration
+            var startDate = new Date(this.paymentForm.subscriptionStartDate);
+            var endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + plan.DurationMonths);
+
+            // Format date for input
+            var year = endDate.getFullYear();
+            var month = ('0' + (endDate.getMonth() + 1)).slice(-2);
+            var day = ('0' + endDate.getDate()).slice(-2);
+            this.paymentForm.subscriptionEndDate = year + '-' + month + '-' + day;
+        },
+
+        calculateAmountPaid: function () {
+            var amount = parseFloat(this.paymentForm.amount) || 0;
+            var discount = parseFloat(this.paymentForm.discountAmount) || 0;
+            this.paymentForm.amountPaid = Math.max(0, amount - discount);
+        },
+
+        cancelPayment: function () {
+            this.showPaymentModal = false;
+            this.paymentForm = {
+                userId: null,
+                userName: '',
+                planId: null,
+                amount: 0,
+                discountAmount: 0,
+                amountPaid: 0,
+                paymentDate: new Date().toISOString().split('T')[0],
+                paymentMethod: 'BankTransfer',
+                referenceNumber: '',
+                notes: '',
+                subscriptionStartDate: new Date().toISOString().split('T')[0],
+                subscriptionEndDate: ''
+            };
+        },
+
+        savePayment: function () {
+            var self = this;
+
+            if (!this.paymentForm.planId) {
+                toastr.warning("Please select a subscription plan");
+                return;
+            }
+
+            if (!this.paymentForm.referenceNumber) {
+                toastr.warning("Please enter a reference number");
+                return;
+            }
+
+            self.isLoading = true;
+
+            var data = {
+                UserID: this.paymentForm.userId,
+                PaymentType: 'ServiceProvider',
+                PlanID: this.paymentForm.planId,
+                Amount: this.paymentForm.amount,
+                DiscountAmount: this.paymentForm.discountAmount,
+                PaymentDate: this.paymentForm.paymentDate,
+                PaymentMethod: this.paymentForm.paymentMethod,
+                ReferenceNumber: this.paymentForm.referenceNumber,
+                Notes: this.paymentForm.notes,
+                SubscriptionStartDate: this.paymentForm.subscriptionStartDate,
+                SubscriptionEndDate: this.paymentForm.subscriptionEndDate
+            };
+
+            self.post("RecordPayment", data).done(function (response) {
+                toastr.success("Payment recorded successfully");
+                self.cancelPayment();
+
+                // Update role expiration date to match subscription end date
+                var updateData = {
+                    UserId: data.UserID,
+                    ExpirationDate: data.SubscriptionEndDate
+                };
+
+                self.post("UpdateRoleExpiration", updateData).done(function () {
+                    self.loadData();
+                    self.loadPaymentStatistics();
+                }).fail(function (xhr) {
+                    console.error("Error updating role expiration:", xhr.responseText);
+                });
+            }).fail(function (xhr, status, error) {
+                console.error("Payment Error:", xhr.responseText);
+                var errorMsg = "Error recording payment";
+                if (xhr.responseJSON && xhr.responseJSON.Message) {
+                    errorMsg = xhr.responseJSON.Message;
+                }
+                toastr.error(errorMsg);
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        closePaymentHistory: function () {
+            this.showPaymentHistoryModal = false;
+            this.paymentHistory = [];
+            this.viewingPaymentHistoryUser = null;
+        },
+
+        getPaymentStatusClass: function (status) {
+            switch (status) {
+                case 'Active': return 'status-active';
+                case 'Expired': return 'status-expired';
+                case 'Cancelled': return 'status-cancelled';
+                case 'Refunded': return 'status-refunded';
+                case 'Pending': return 'status-pending';
+                default: return '';
+            }
         },
 
         startEditExpiration: function (user) {

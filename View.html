@@ -311,7 +311,7 @@
             </div>
         </div>
 
-        <!-- Confirmation Modal -->
+    <!-- Confirmation Modal -->
         <div v-if="showConfirmModal" class="modal-overlay" @click="cancelRemove">
             <div class="modal-content" @click.stop>
                 <h3>Confirm Removal</h3>
@@ -319,6 +319,163 @@
                 <div class="modal-actions">
                     <button type="button" @click="removeUser" class="btn-modern btn-danger">Yes, Remove</button>
                     <button type="button" @click="cancelRemove" class="btn-modern btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+       <!-- Payment Modal -->
+        <div v-if="showPaymentModal" class="modal-overlay" @click="cancelPayment">
+            <div class="modal-content modal-payment" @click.stop>
+                <div class="modal-header">
+                    <h3>Record Payment for {{paymentForm.userName}}</h3>
+                    <button type="button" class="modal-close" @click="cancelPayment">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <!-- Subscription Plans -->
+                    <h4>Select Subscription Plan</h4>
+                    <div class="plan-grid">
+                        <div v-for="plan in subscriptionPlans" :key="plan.PlanID" 
+                             @click="selectPlan(plan)"
+                             :class="['plan-card', { 'selected': paymentForm.planId === plan.PlanID }]">
+                            <div class="plan-name">{{plan.PlanName}}</div>
+                            <div class="plan-amount">€{{plan.Amount}}</div>
+                            <div class="plan-duration">{{plan.DurationMonths}} months</div>
+                            <div v-if="plan.Description" class="plan-description">{{plan.Description}}</div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Details -->
+                    <h4>Payment Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Payment Date</label>
+                            <input type="date" v-model="paymentForm.paymentDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Method</label>
+                            <select v-model="paymentForm.paymentMethod" class="form-control">
+                                <option value="BankTransfer">Bank Transfer</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Online">Online</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Reference Number <span class="required">*</span></label>
+                            <input type="text" v-model="paymentForm.referenceNumber" class="form-control" 
+                                   placeholder="Transaction ID or receipt number">
+                        </div>
+                        <div class="form-group">
+                            <label>Plan Amount (€)</label>
+                            <input type="number" v-model="paymentForm.amount" class="form-control" 
+                                   :disabled="paymentForm.planId !== null" step="0.01" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Discount (€)</label>
+                            <input type="number" v-model="paymentForm.discountAmount" 
+                                   @input="calculateAmountPaid" class="form-control" 
+                                   step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount Paid (€)</label>
+                            <input type="number" v-model="paymentForm.amountPaid" class="form-control" 
+                                   step="0.01" readonly style="font-weight: bold; background-color: #f0f8ff;">
+                        </div>
+                    </div>
+
+                    <!-- Subscription Period -->
+                    <h4>Subscription Period</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" v-model="paymentForm.subscriptionStartDate" 
+                                   @change="paymentForm.planId && selectPlan(subscriptionPlans.find(p => p.PlanID === paymentForm.planId))"
+                                   class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date</label>
+                            <input type="date" v-model="paymentForm.subscriptionEndDate" 
+                                   class="form-control" :disabled="!paymentForm.planId">
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <textarea v-model="paymentForm.notes" class="form-control" rows="3" 
+                                  placeholder="Additional notes about this payment"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" @click="savePayment" class="btn-modern btn-primary">Record Payment</button>
+                    <button type="button" @click="cancelPayment" class="btn-modern btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment History Modal -->
+        <div v-if="showPaymentHistoryModal" class="modal-overlay" @click="closePaymentHistory">
+            <div class="modal-content modal-history" @click.stop>
+                <div class="modal-header">
+                    <h3>Payment History - {{viewingPaymentHistoryUser ? viewingPaymentHistoryUser.DisplayName : ''}}</h3>
+                    <button type="button" class="modal-close" @click="closePaymentHistory">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div v-if="paymentHistory.length === 0" class="no-payments">
+                        No payments recorded for this user.
+                    </div>
+                    
+                    <div v-else class="payment-history-table">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Plan</th>
+                                    <th>Amount</th>
+                                    <th>Discount</th>
+                                    <th>Paid</th>
+                                    <th>Period</th>
+                                    <th>Method</th>
+                                    <th>Ref</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="payment in paymentHistory" :key="payment.PaymentID">
+                                    <td>{{formatDate(payment.PaymentDate)}}</td>
+                                    <td>{{payment.PlanName || '-'}}</td>
+                                    <td>€{{payment.Amount}}</td>
+                                    <td>€{{payment.DiscountAmount || 0}}</td>
+                                    <td style="font-weight: bold;">€{{(payment.Amount - (payment.DiscountAmount || 0)).toFixed(2)}}</td>
+                                    <td>
+                                        <div v-if="payment.SubscriptionStartDate && payment.SubscriptionEndDate">
+                                            {{formatDate(payment.SubscriptionStartDate)}} - {{formatDate(payment.SubscriptionEndDate)}}
+                                        </div>
+                                        <span v-else>-</span>
+                                    </td>
+                                    <td>{{payment.PaymentMethod || '-'}}</td>
+                                    <td>{{payment.ReferenceNumber || '-'}}</td>
+                                    <td>
+                                        <span :class="['payment-status', getPaymentStatusClass(payment.Status)]">
+                                            {{payment.Status}}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" @click="closePaymentHistory" class="btn-modern btn-secondary">Close</button>
                 </div>
             </div>
         </div>

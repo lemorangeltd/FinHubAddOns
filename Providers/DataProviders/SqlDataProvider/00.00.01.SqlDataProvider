@@ -219,3 +219,47 @@ BEGIN
     ('Project Submitter Monthly', 'User', 'Monthly subscription for project submitters', 25.00, 'EUR', 1, 4)
 END
 GO
+
+-- Update the stored procedure to include payment statistics
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinPayments_GetPaymentStatistics')
+    DROP PROCEDURE [dbo].[FinPayments_GetPaymentStatistics]
+GO
+
+CREATE PROCEDURE [dbo].[FinPayments_GetPaymentStatistics]
+    @PortalID int,
+    @PaymentType nvarchar(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Today datetime = CAST(GETDATE() AS DATE)
+    DECLARE @ThisMonthStart datetime = DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)
+    DECLARE @ThisYearStart datetime = DATEADD(year, DATEDIFF(year, 0, GETDATE()), 0)
+    
+    SELECT 
+        -- Total payments
+        COUNT(*) as TotalPayments,
+        ISNULL(SUM(Amount), 0) as TotalRevenue,
+        ISNULL(SUM(DiscountAmount), 0) as TotalDiscounts,
+        ISNULL(SUM(Amount - ISNULL(DiscountAmount, 0)), 0) as TotalNetRevenue,
+        
+        -- This month
+        COUNT(CASE WHEN PaymentDate >= @ThisMonthStart THEN 1 END) as PaymentsThisMonth,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisMonthStart THEN Amount END), 0) as RevenueThisMonth,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisMonthStart THEN Amount - ISNULL(DiscountAmount, 0) END), 0) as NetRevenueThisMonth,
+        
+        -- This year
+        COUNT(CASE WHEN PaymentDate >= @ThisYearStart THEN 1 END) as PaymentsThisYear,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisYearStart THEN Amount END), 0) as RevenueThisYear,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisYearStart THEN Amount - ISNULL(DiscountAmount, 0) END), 0) as NetRevenueThisYear,
+        
+        -- Active subscriptions
+        COUNT(CASE WHEN Status = 'Active' AND SubscriptionEndDate >= @Today THEN 1 END) as ActiveSubscriptions,
+        COUNT(CASE WHEN Status = 'Active' AND SubscriptionEndDate < @Today THEN 1 END) as ExpiredSubscriptions,
+        COUNT(CASE WHEN Status = 'Active' AND SubscriptionEndDate BETWEEN @Today AND DATEADD(day, 30, @Today) THEN 1 END) as ExpiringThisMonth
+        
+    FROM FinPayments
+    WHERE PortalID = @PortalID
+    AND (@PaymentType IS NULL OR PaymentType = @PaymentType)
+END
+GO

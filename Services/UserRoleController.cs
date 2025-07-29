@@ -156,6 +156,7 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                     PaymentType = request.PaymentType,
                     PlanID = request.PlanID,
                     Amount = request.Amount,
+                    DiscountAmount = request.DiscountAmount,
                     Currency = "EUR",
                     PaymentDate = request.PaymentDate,
                     PaymentMethod = request.PaymentMethod,

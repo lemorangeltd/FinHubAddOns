@@ -89,13 +89,13 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                     command.Connection = connection;
                     command.CommandText = @"
                         INSERT INTO FinPayments (
-                            UserID, PaymentType, PlanID, Amount, Currency, 
+                            UserID, PaymentType, PlanID, Amount, DiscountAmount, Currency, 
                             PaymentDate, PaymentMethod, ReferenceNumber,
                             SubscriptionStartDate, SubscriptionEndDate,
                             Status, InvoiceNumber, Notes, PortalID,
                             CreatedDate, CreatedByUserID
                         ) VALUES (
-                            @UserID, @PaymentType, @PlanID, @Amount, @Currency,
+                            @UserID, @PaymentType, @PlanID, @Amount, @DiscountAmount, @Currency,
                             @PaymentDate, @PaymentMethod, @ReferenceNumber,
                             @SubscriptionStartDate, @SubscriptionEndDate,
                             @Status, @InvoiceNumber, @Notes, @PortalID,
@@ -107,6 +107,7 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                     command.Parameters.AddWithValue("@PaymentType", payment.PaymentType);
                     command.Parameters.AddWithValue("@PlanID", (object)payment.PlanID ?? DBNull.Value);
                     command.Parameters.AddWithValue("@Amount", payment.Amount);
+                    command.Parameters.AddWithValue("@DiscountAmount", payment.DiscountAmount);
                     command.Parameters.AddWithValue("@Currency", payment.Currency ?? "EUR");
                     command.Parameters.AddWithValue("@PaymentDate", payment.PaymentDate);
                     command.Parameters.AddWithValue("@PaymentMethod", (object)payment.PaymentMethod ?? DBNull.Value);
