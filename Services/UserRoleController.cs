@@ -215,6 +215,7 @@ namespace Lemorange.Modules.FinHubAddOns.Services
 
                 // Use regular variables instead of anonymous type
                 decimal totalRevenue = 0m;
+                decimal totalDiscounts = 0m;
                 decimal monthlyRevenue = 0m;
                 decimal yearlyRevenue = 0m;
                 int activeSubscriptions = 0;
@@ -241,6 +242,7 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                     }
 
                     totalRevenue += payment.Amount;
+                    totalDiscounts += payment.DiscountAmount;
 
                     if (payment.PaymentDate >= thisMonth)
                     {
@@ -257,6 +259,7 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                 var stats = new
                 {
                     totalRevenue = totalRevenue,
+                    totalDiscounts = totalDiscounts,
                     monthlyRevenue = monthlyRevenue,
                     yearlyRevenue = yearlyRevenue,
                     activeSubscriptions = activeSubscriptions,
@@ -378,16 +381,54 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                 var yearEnd = new DateTime(year, 12, 31);
 
                 decimal yearlyRevenue = 0m;
+                decimal yearlyDiscounts = 0m;
+                int yearlyPaymentCount = 0;
 
                 foreach (var payment in allPayments)
                 {
                     if (payment.PaymentDate >= yearStart && payment.PaymentDate <= yearEnd)
                     {
                         yearlyRevenue += payment.Amount;
+                        yearlyDiscounts += payment.DiscountAmount;
+                        yearlyPaymentCount++;
                     }
                 }
 
-                return Request.CreateResponse(HttpStatusCode.OK, new { yearlyRevenue = yearlyRevenue });
+                return Request.CreateResponse(HttpStatusCode.OK, new
+                {
+                    yearlyRevenue = yearlyRevenue,
+                    yearlyDiscounts = yearlyDiscounts,
+                    yearlyPaymentCount = yearlyPaymentCount,
+                    yearlyNetRevenue = yearlyRevenue - yearlyDiscounts
+                });
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpGet]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.View)]
+        public HttpResponseMessage GetAvailableYears()
+        {
+            try
+            {
+                var allPayments = _paymentRepository.GetAllPayments(ActiveModule.PortalID, "ServiceProvider");
+                var years = allPayments
+                    .Select(p => p.PaymentDate.Year)
+                    .Distinct()
+                    .OrderByDescending(y => y)
+                    .ToList();
+
+                // Always include current year even if no payments
+                var currentYear = DateTime.Now.Year;
+                if (!years.Contains(currentYear))
+                {
+                    years.Insert(0, currentYear);
+                }
+
+                return Request.CreateResponse(HttpStatusCode.OK, years);
             }
             catch (Exception ex)
             {

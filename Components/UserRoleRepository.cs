@@ -46,6 +46,7 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                         PortalJoinDate = dr["PortalJoinDate"] != DBNull.Value ? Convert.ToDateTime(dr["PortalJoinDate"]) : (DateTime?)null,
                         IsAuthorized = dr["IsAuthorized"] != DBNull.Value && Convert.ToBoolean(dr["IsAuthorized"]),
                         IsSuperUser = dr["IsSuperUser"] != DBNull.Value && Convert.ToBoolean(dr["IsSuperUser"]),
+                        IsDeleted = dr["IsDeleted"] != DBNull.Value && Convert.ToBoolean(dr["IsDeleted"]),
 
                         // Address Information
                         Street = dr["Street"] != DBNull.Value ? dr["Street"].ToString() : string.Empty,

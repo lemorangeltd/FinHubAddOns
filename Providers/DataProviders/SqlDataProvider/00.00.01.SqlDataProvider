@@ -1,4 +1,6 @@
-﻿-- Create Subscription Plans table
+﻿-- =============================================
+-- Create Subscription Plans table
+-- =============================================
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinSubscriptionPlans]') AND type in (N'U'))
 BEGIN
     CREATE TABLE [dbo].[FinSubscriptionPlans](
@@ -20,7 +22,9 @@ BEGIN
 END
 GO
 
+-- =============================================
 -- Create Payments table
+-- =============================================
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinPayments]') AND type in (N'U'))
 BEGIN
     CREATE TABLE [dbo].[FinPayments](
@@ -30,6 +34,7 @@ BEGIN
         [PlanID] [int] NULL,
         -- Payment Details
         [Amount] [decimal](10, 2) NOT NULL,
+        [DiscountAmount] [decimal](10, 2) NOT NULL DEFAULT (0),
         [Currency] [nvarchar](3) DEFAULT ('EUR'),
         [PaymentDate] [datetime] NOT NULL,
         [PaymentMethod] [nvarchar](50) NULL, -- 'BankTransfer', 'Cash', 'Cheque', 'Online'
@@ -56,7 +61,18 @@ BEGIN
 END
 GO
 
+-- =============================================
+-- Add DiscountAmount column if it doesn't exist
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[FinPayments]') AND name = 'DiscountAmount')
+BEGIN
+    ALTER TABLE [dbo].[FinPayments] ADD [DiscountAmount] [decimal](10, 2) NOT NULL DEFAULT (0)
+END
+GO
 
+-- =============================================
+-- Drop and recreate the main stored procedure
+-- =============================================
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinHubAddOns_GetServiceProviderUsers')
     DROP PROCEDURE [dbo].[FinHubAddOns_GetServiceProviderUsers]
 GO
@@ -66,6 +82,16 @@ CREATE PROCEDURE [dbo].[FinHubAddOns_GetServiceProviderUsers]
 AS
 BEGIN
     SET NOCOUNT ON;
+    
+    -- Check if payment tables exist
+    DECLARE @PaymentsTableExists BIT = 0
+    DECLARE @PlansTableExists BIT = 0
+    
+    IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinPayments]') AND type in (N'U'))
+        SET @PaymentsTableExists = 1
+        
+    IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinSubscriptionPlans]') AND type in (N'U'))
+        SET @PlansTableExists = 1
     
     SELECT DISTINCT 
         -- Basic User Info
@@ -87,6 +113,8 @@ BEGIN
         up.CreatedDate AS PortalJoinDate,
         up.Authorised AS IsAuthorized,
         u.IsSuperUser,
+        -- Always return 0 for IsDeleted if column doesn't exist in older DNN versions
+        CAST(0 AS BIT) AS IsDeleted,
         
         -- Address Information
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 
@@ -128,9 +156,9 @@ BEGIN
                AND (ur2.ExpiryDate IS NULL OR ur2.ExpiryDate > GETDATE())
                FOR XML PATH('')), 1, 2, '') AS OtherRoles,
                
-        -- Payment Status
+        -- Payment Status - only check if table exists
         CASE 
-            WHEN EXISTS (
+            WHEN @PaymentsTableExists = 1 AND EXISTS (
                 SELECT 1 FROM FinPayments p 
                 WHERE p.UserID = u.UserID 
                 AND p.PaymentType = 'ServiceProvider'
@@ -141,23 +169,29 @@ BEGIN
             ELSE 'Unpaid'
         END AS PaymentStatus,
         
-        -- Latest Payment Info
-        (SELECT TOP 1 p.SubscriptionEndDate 
-         FROM FinPayments p 
-         WHERE p.UserID = u.UserID 
-         AND p.PaymentType = 'ServiceProvider'
-         AND p.Status = 'Active'
-         AND p.PortalID = @PortalID
-         ORDER BY p.SubscriptionEndDate DESC) AS SubscriptionEndDate,
+        -- Latest Payment Info - return NULL if table doesn't exist
+        CASE WHEN @PaymentsTableExists = 1 THEN
+            (SELECT TOP 1 p.SubscriptionEndDate 
+             FROM FinPayments p 
+             WHERE p.UserID = u.UserID 
+             AND p.PaymentType = 'ServiceProvider'
+             AND p.Status = 'Active'
+             AND p.PortalID = @PortalID
+             ORDER BY p.SubscriptionEndDate DESC)
+        ELSE NULL 
+        END AS SubscriptionEndDate,
          
-        (SELECT TOP 1 sp.PlanName 
-         FROM FinPayments p
-         INNER JOIN FinSubscriptionPlans sp ON p.PlanID = sp.PlanID
-         WHERE p.UserID = u.UserID 
-         AND p.PaymentType = 'ServiceProvider'
-         AND p.Status = 'Active'
-         AND p.PortalID = @PortalID
-         ORDER BY p.SubscriptionEndDate DESC) AS CurrentPlan
+        CASE WHEN @PaymentsTableExists = 1 AND @PlansTableExists = 1 THEN
+            (SELECT TOP 1 sp.PlanName 
+             FROM FinPayments p
+             INNER JOIN FinSubscriptionPlans sp ON p.PlanID = sp.PlanID
+             WHERE p.UserID = u.UserID 
+             AND p.PaymentType = 'ServiceProvider'
+             AND p.Status = 'Active'
+             AND p.PortalID = @PortalID
+             ORDER BY p.SubscriptionEndDate DESC)
+        ELSE NULL
+        END AS CurrentPlan
          
     FROM Users u
         INNER JOIN UserRoles ur ON u.UserID = ur.UserID
@@ -167,13 +201,15 @@ BEGIN
         AND r.PortalID = @PortalID
         AND up.PortalID = @PortalID
         AND ur.EffectiveDate <= GETDATE()
-        AND (ur.ExpiryDate IS NULL OR ur.ExpiryDate > GETDATE())
-        AND up.Authorised = 1
+        -- REMOVED: AND (ur.ExpiryDate IS NULL OR ur.ExpiryDate > GETDATE())
+        -- Now shows ALL users with Service Provider role, including expired
     ORDER BY u.Username
 END
 GO
 
+-- =============================================
 -- Add check constraint for valid payment statuses
+-- =============================================
 IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_FinPayments_Status')
 BEGIN
     ALTER TABLE FinPayments
@@ -182,7 +218,9 @@ BEGIN
 END
 GO
 
--- Create stored procedures for payments
+-- =============================================
+-- Create stored procedure for getting subscription plans
+-- =============================================
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinPayments_GetSubscriptionPlans')
     DROP PROCEDURE [dbo].[FinPayments_GetSubscriptionPlans]
 GO
@@ -208,7 +246,9 @@ BEGIN
 END
 GO
 
+-- =============================================
 -- Insert default subscription plans
+-- =============================================
 IF NOT EXISTS (SELECT * FROM FinSubscriptionPlans)
 BEGIN
     INSERT INTO FinSubscriptionPlans (PlanName, PlanType, Description, Amount, Currency, DurationMonths, SortOrder)
@@ -220,7 +260,9 @@ BEGIN
 END
 GO
 
--- Update the stored procedure to include payment statistics
+-- =============================================
+-- Create stored procedure for payment statistics
+-- =============================================
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinPayments_GetPaymentStatistics')
     DROP PROCEDURE [dbo].[FinPayments_GetPaymentStatistics]
 GO
@@ -231,6 +273,29 @@ CREATE PROCEDURE [dbo].[FinPayments_GetPaymentStatistics]
 AS
 BEGIN
     SET NOCOUNT ON;
+    
+    -- Check if payment table exists
+    IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinPayments]') AND type in (N'U'))
+    BEGIN
+        -- Return empty statistics if table doesn't exist
+        SELECT 
+            0 as TotalPayments,
+            0 as TotalRevenue,
+            0 as TotalDiscounts,
+            0 as TotalNetRevenue,
+            0 as PaymentsThisMonth,
+            0 as RevenueThisMonth,
+            0 as DiscountsThisMonth,
+            0 as NetRevenueThisMonth,
+            0 as PaymentsThisYear,
+            0 as RevenueThisYear,
+            0 as DiscountsThisYear,
+            0 as NetRevenueThisYear,
+            0 as ActiveSubscriptions,
+            0 as ExpiredSubscriptions,
+            0 as ExpiringThisMonth
+        RETURN
+    END
     
     DECLARE @Today datetime = CAST(GETDATE() AS DATE)
     DECLARE @ThisMonthStart datetime = DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)
@@ -246,11 +311,13 @@ BEGIN
         -- This month
         COUNT(CASE WHEN PaymentDate >= @ThisMonthStart THEN 1 END) as PaymentsThisMonth,
         ISNULL(SUM(CASE WHEN PaymentDate >= @ThisMonthStart THEN Amount END), 0) as RevenueThisMonth,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisMonthStart THEN DiscountAmount END), 0) as DiscountsThisMonth,
         ISNULL(SUM(CASE WHEN PaymentDate >= @ThisMonthStart THEN Amount - ISNULL(DiscountAmount, 0) END), 0) as NetRevenueThisMonth,
         
         -- This year
         COUNT(CASE WHEN PaymentDate >= @ThisYearStart THEN 1 END) as PaymentsThisYear,
         ISNULL(SUM(CASE WHEN PaymentDate >= @ThisYearStart THEN Amount END), 0) as RevenueThisYear,
+        ISNULL(SUM(CASE WHEN PaymentDate >= @ThisYearStart THEN DiscountAmount END), 0) as DiscountsThisYear,
         ISNULL(SUM(CASE WHEN PaymentDate >= @ThisYearStart THEN Amount - ISNULL(DiscountAmount, 0) END), 0) as NetRevenueThisYear,
         
         -- Active subscriptions
@@ -263,3 +330,7 @@ BEGIN
     AND (@PaymentType IS NULL OR PaymentType = @PaymentType)
 END
 GO
+
+-- =============================================
+-- End of script
+-- =============================================

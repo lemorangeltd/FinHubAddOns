@@ -33,8 +33,8 @@ FinHubAddOns.ServiceProviderComponent = {
                 city: '',
                 state: '',
                 country: '',
-                daysInRole: '',
-                expirationStatus: ''
+                paymentStatus: '',
+                subscriptionStatus: ''
             },
 
             // Unique values for filters
@@ -60,7 +60,9 @@ FinHubAddOns.ServiceProviderComponent = {
                 stateRegion: '',
                 postalCode: '',
                 country: '',
-                roleExpirationDate: ''
+                roleExpirationDate: '',
+                isAuthorized: true,
+                isDeleted: false
             },
 
             // Confirmation modal
@@ -97,12 +99,16 @@ FinHubAddOns.ServiceProviderComponent = {
             paymentStats: {
                 totalPayments: 0,
                 totalRevenue: 0,
+                totalDiscounts: 0,
                 totalNetRevenue: 0,
-                paymentsThisMonth: 0,
                 revenueThisMonth: 0,
-                paymentsThisYear: 0,
                 revenueThisYear: 0
-            }
+            },
+
+            // Year selection for statistics
+            selectedYear: new Date().getFullYear(),
+            selectedYearRevenue: 0,
+            availableYears: []
         };
     },
 
@@ -136,11 +142,21 @@ FinHubAddOns.ServiceProviderComponent = {
             }).length;
         },
 
-        activeUsers: function () {
+        paidUsers: function () {
+            return this.users.filter(function (user) {
+                return user.PaymentStatus === 'Paid';
+            }).length;
+        },
+
+        unpaidUsers: function () {
             var today = new Date();
             return this.users.filter(function (user) {
-                if (!user.RoleExpirationDate) return true;
-                return new Date(user.RoleExpirationDate) > today;
+                // Unpaid if payment status is unpaid AND role hasn't expired
+                if (!user.RoleExpirationDate) {
+                    return user.PaymentStatus === 'Unpaid';
+                }
+                var expDate = new Date(user.RoleExpirationDate);
+                return user.PaymentStatus === 'Unpaid' && expDate > today;
             }).length;
         },
 
@@ -148,7 +164,8 @@ FinHubAddOns.ServiceProviderComponent = {
             var today = new Date();
             return this.users.filter(function (user) {
                 if (!user.RoleExpirationDate) return false;
-                return new Date(user.RoleExpirationDate) <= today;
+                var expDate = new Date(user.RoleExpirationDate);
+                return expDate <= today;
             }).length;
         }
     },
@@ -157,6 +174,7 @@ FinHubAddOns.ServiceProviderComponent = {
         this.loadData();
         this.loadSubscriptionPlans();
         this.loadPaymentStatistics();
+        this.initializeYearSelector();
     },
 
     methods: {
@@ -201,6 +219,8 @@ FinHubAddOns.ServiceProviderComponent = {
 
         refreshData: function () {
             this.loadData();
+            this.loadPaymentStatistics();
+            this.loadPaymentStatisticsForYear();
         },
 
         extractUniqueValues: function () {
@@ -209,13 +229,7 @@ FinHubAddOns.ServiceProviderComponent = {
             var countries = new Set();
 
             this.users.forEach(function (user) {
-                // Normalize city names to handle case differences
-                if (user.City) {
-                    var normalizedCity = user.City.trim();
-                    // Store both original and normalized
-                    cities.add(normalizedCity);
-                    user.NormalizedCity = normalizedCity;
-                }
+                if (user.City) cities.add(user.City.trim());
                 if (user.StateRegion) states.add(user.StateRegion);
                 if (user.Country) countries.add(user.Country);
             });
@@ -260,41 +274,22 @@ FinHubAddOns.ServiceProviderComponent = {
                 });
             }
 
-            // Days in role filter
-            if (this.filters.daysInRole) {
+            // Payment status filter
+            if (this.filters.paymentStatus) {
                 filtered = filtered.filter(function (user) {
-                    if (self.filters.daysInRole === '365+') {
-                        return user.DaysInRole > 365;
-                    } else {
-                        var days = parseInt(self.filters.daysInRole);
-                        return user.DaysInRole < days;
-                    }
+                    return user.PaymentStatus === self.filters.paymentStatus;
                 });
             }
 
-            // Expiration status filter
-            if (this.filters.expirationStatus) {
+            // Subscription status filter
+            if (this.filters.subscriptionStatus) {
                 var today = new Date();
                 var thirtyDaysFromNow = new Date();
                 thirtyDaysFromNow.setDate(today.getDate() + 30);
 
                 filtered = filtered.filter(function (user) {
-                    if (!user.RoleExpirationDate) {
-                        return self.filters.expirationStatus === 'never';
-                    }
-
-                    var expDate = new Date(user.RoleExpirationDate);
-
-                    switch (self.filters.expirationStatus) {
-                        case 'active':
-                            return expDate > today;
-                        case 'expiring30':
-                            return expDate > today && expDate <= thirtyDaysFromNow;
-                        case 'expired':
-                            return expDate <= today;
-                        case 'never':
-                            return false;
-                    }
+                    var status = self.getSubscriptionStatus(user);
+                    return status === self.filters.subscriptionStatus;
                 });
             }
 
@@ -326,8 +321,8 @@ FinHubAddOns.ServiceProviderComponent = {
                 city: '',
                 state: '',
                 country: '',
-                daysInRole: '',
-                expirationStatus: ''
+                paymentStatus: '',
+                subscriptionStatus: ''
             };
             this.applyFilters();
         },
@@ -361,58 +356,133 @@ FinHubAddOns.ServiceProviderComponent = {
             return this.formatDate(dateString);
         },
 
-        getRowClass: function (user) {
-            // Check payment status first
-            if (user.PaymentStatus === 'Unpaid') {
-                // Check if role is expired
-                if (user.RoleExpirationDate) {
-                    var today = new Date();
-                    var expDate = new Date(user.RoleExpirationDate);
-                    if (expDate <= today) {
-                        return 'expired-row';
-                    }
+        getStatus: function (user) {
+            var today = new Date();
+
+            // Check if user is deleted or unauthorized first
+            if (user.IsDeleted) {
+                return 'Deleted';
+            }
+
+            if (!user.IsAuthorized) {
+                return 'Unauthorized';
+            }
+
+            // Check if role has expired
+            if (user.RoleExpirationDate) {
+                var roleExpDate = new Date(user.RoleExpirationDate);
+                if (roleExpDate <= today) {
+                    return 'Expired';
                 }
             }
 
-            if (!user.RoleExpirationDate) return '';
+            // If not expired, check payment status
+            if (user.PaymentStatus === 'Unpaid') {
+                return 'Unpaid';
+            }
 
-            var today = new Date();
-            var expDate = new Date(user.RoleExpirationDate);
-            var daysUntilExpiration = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
+            // If paid, check subscription status
+            if (!user.SubscriptionEndDate) {
+                return 'Active';
+            }
 
-            if (expDate <= today) return 'expired-row';
-            if (daysUntilExpiration <= 30) return 'expiring-soon-row';
-            return '';
+            var subEndDate = new Date(user.SubscriptionEndDate);
+            var daysUntilExpiration = Math.floor((subEndDate - today) / (1000 * 60 * 60 * 24));
+
+            if (subEndDate <= today) return 'Expired';
+            if (daysUntilExpiration <= 30) return 'Expiring';
+            return 'Active';
         },
 
-        getExpirationClass: function (user) {
-            if (!user.RoleExpirationDate) return '';
-
+        getSubscriptionStatus: function (user) {
             var today = new Date();
-            var expDate = new Date(user.RoleExpirationDate);
-            var daysUntilExpiration = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
 
-            if (expDate <= today) return 'expired';
-            if (daysUntilExpiration <= 30) return 'expiring-soon';
+            // First check role expiration
+            if (user.RoleExpirationDate) {
+                var roleExpDate = new Date(user.RoleExpirationDate);
+                if (roleExpDate <= today) {
+                    return 'Expired';
+                }
+            }
+
+            if (!user.SubscriptionEndDate) {
+                return user.PaymentStatus === 'Paid' ? 'Active' : 'No Subscription';
+            }
+
+            var endDate = new Date(user.SubscriptionEndDate);
+            var daysUntilExpiration = Math.floor((endDate - today) / (1000 * 60 * 60 * 24));
+
+            if (endDate <= today) return 'Expired';
+            if (daysUntilExpiration <= 30) return 'Expiring';
+            return 'Active';
+        },
+
+        getStatusClass: function (user) {
+            var status = this.getStatus(user);
+            switch (status) {
+                case 'Active': return 'status-active';
+                case 'Expiring': return 'status-expiring';
+                case 'Expired': return 'status-expired';
+                case 'Unpaid': return 'status-unpaid';
+                case 'Unauthorized': return 'status-unauthorized';
+                case 'Deleted': return 'status-deleted';
+                case 'No Subscription': return 'status-none';
+                default: return '';
+            }
+        },
+
+        getSubscriptionClass: function (user) {
+            var status = this.getSubscriptionStatus(user);
+            switch (status) {
+                case 'Expired': return 'expired';
+                case 'Expiring': return 'expiring-soon';
+                default: return '';
+            }
+        },
+
+        getRowClass: function (user) {
+            // Check if user is soft deleted
+            if (user.IsDeleted) {
+                return 'deleted-row';
+            }
+
+            // Check if user is unauthorized
+            if (!user.IsAuthorized) {
+                return 'unauthorized-row';
+            }
+
+            if (user.PaymentStatus === 'Unpaid') {
+                return 'unpaid-row';
+            }
+
+            var status = this.getSubscriptionStatus(user);
+            if (status === 'Expired') return 'expired-row';
+            if (status === 'Expiring') return 'expiring-soon-row';
             return '';
         },
 
         // Statistics click handlers
         filterByExpiring: function () {
             this.clearFilters();
-            this.filters.expirationStatus = 'expiring30';
+            this.filters.subscriptionStatus = 'Expiring';
             this.applyFilters();
         },
 
-        filterByActive: function () {
+        filterByPaid: function () {
             this.clearFilters();
-            this.filters.expirationStatus = 'active';
+            this.filters.paymentStatus = 'Paid';
+            this.applyFilters();
+        },
+
+        filterByUnpaid: function () {
+            this.clearFilters();
+            this.filters.paymentStatus = 'Unpaid';
             this.applyFilters();
         },
 
         filterByExpired: function () {
             this.clearFilters();
-            this.filters.expirationStatus = 'expired';
+            this.filters.subscriptionStatus = 'Expired';
             this.applyFilters();
         },
 
@@ -442,7 +512,9 @@ FinHubAddOns.ServiceProviderComponent = {
                 stateRegion: user.StateRegion || '',
                 postalCode: user.PostalCode || '',
                 country: user.Country || '',
-                roleExpirationDate: ''
+                roleExpirationDate: '',
+                isAuthorized: user.IsAuthorized || false,
+                isDeleted: false // Always start with false for safety
             };
 
             // Set role expiration date if exists
@@ -469,36 +541,59 @@ FinHubAddOns.ServiceProviderComponent = {
                 stateRegion: '',
                 postalCode: '',
                 country: '',
-                roleExpirationDate: ''
+                roleExpirationDate: '',
+                isAuthorized: true,
+                isDeleted: false
             };
         },
 
         saveUserEdit: function () {
             var self = this;
 
-            // Currently, only role expiration date can be updated
-            // To update other fields, additional API endpoints would need to be created
-            if (this.editForm.roleExpirationDate !== '') {
-                self.isLoading = true;
-
-                var data = {
-                    UserId: this.editingUser.UserId,
-                    ExpirationDate: this.editForm.roleExpirationDate || null
-                };
-
-                self.post("UpdateRoleExpiration", data).done(function (response) {
-                    toastr.success("Role expiration date updated successfully");
-                    self.cancelEdit();
-                    self.loadData();
-                }).fail(function (xhr, status, error) {
-                    console.error("Update Error:", xhr.responseText);
-                    toastr.error("Error updating expiration date");
-                }).always(function () {
-                    self.isLoading = false;
-                });
-            } else {
-                toastr.info("Please set an expiration date to save changes");
+            // Confirm if user is trying to delete
+            if (this.editForm.isDeleted) {
+                if (!confirm('Are you sure you want to soft delete this user? This action can be reversed by an administrator.')) {
+                    return;
+                }
             }
+
+            self.isLoading = true;
+
+            var data = {
+                UserId: this.editingUser.UserId,
+                FirstName: this.editForm.firstName,
+                LastName: this.editForm.lastName,
+                DisplayName: this.editForm.displayName,
+                Phone: this.editForm.phone,
+                Mobile: this.editForm.mobile,
+                Street: this.editForm.street,
+                City: this.editForm.city,
+                StateRegion: this.editForm.stateRegion,
+                PostalCode: this.editForm.postalCode,
+                Country: this.editForm.country,
+                RoleExpirationDate: this.editForm.roleExpirationDate || null,
+                IsAuthorized: this.editForm.isAuthorized,
+                IsDeleted: this.editForm.isDeleted
+            };
+
+            self.post("UpdateUser", data).done(function (response) {
+                var message = "User updated successfully";
+                if (data.IsDeleted) {
+                    message = "User has been soft deleted";
+                }
+                toastr.success(message);
+                self.cancelEdit();
+                self.loadData();
+            }).fail(function (xhr, status, error) {
+                console.error("Update Error:", xhr.responseText);
+                var errorMsg = "Error updating user";
+                if (xhr.responseJSON && xhr.responseJSON.Message) {
+                    errorMsg = xhr.responseJSON.Message;
+                }
+                toastr.error(errorMsg);
+            }).always(function () {
+                self.isLoading = false;
+            });
         },
 
         insertPayment: function (user) {
@@ -551,14 +646,35 @@ FinHubAddOns.ServiceProviderComponent = {
                 self.paymentStats = {
                     totalPayments: response.totalPayments || 0,
                     totalRevenue: response.totalRevenue || 0,
+                    totalDiscounts: response.totalDiscounts || 0,
                     totalNetRevenue: response.totalNetRevenue || 0,
-                    paymentsThisMonth: response.monthlyRevenue || 0,
                     revenueThisMonth: response.monthlyRevenue || 0,
-                    paymentsThisYear: response.yearlyRevenue || 0,
                     revenueThisYear: response.yearlyRevenue || 0
                 };
+                // Load current year revenue
+                self.loadPaymentStatisticsForYear();
             }).fail(function (xhr, status, error) {
                 console.error("Error loading payment statistics:", xhr.responseText);
+            });
+        },
+
+        initializeYearSelector: function () {
+            var currentYear = new Date().getFullYear();
+            var startYear = 2020; // Adjust based on when your system started
+
+            this.availableYears = [];
+            for (var year = currentYear; year >= startYear; year--) {
+                this.availableYears.push(year);
+            }
+        },
+
+        loadPaymentStatisticsForYear: function () {
+            var self = this;
+            self.get("GetPaymentStatisticsByYear", { year: self.selectedYear }).done(function (response) {
+                self.selectedYearRevenue = response.yearlyRevenue || 0;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading year statistics:", xhr.responseText);
+                self.selectedYearRevenue = 0;
             });
         },
 
