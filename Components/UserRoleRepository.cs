@@ -66,7 +66,41 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                         // Payment Information
                         PaymentStatus = dr["PaymentStatus"] != DBNull.Value ? dr["PaymentStatus"].ToString() : "Unpaid",
                         SubscriptionEndDate = dr["SubscriptionEndDate"] != DBNull.Value ? Convert.ToDateTime(dr["SubscriptionEndDate"]) : (DateTime?)null,
-                        CurrentPlan = dr["CurrentPlan"] != DBNull.Value ? dr["CurrentPlan"].ToString() : string.Empty
+                        CurrentPlan = dr["CurrentPlan"] != DBNull.Value ? dr["CurrentPlan"].ToString() : string.Empty,
+
+                        // Rating Information
+                        AverageRating = dr["AverageRating"] != DBNull.Value ? Convert.ToDecimal(dr["AverageRating"]) : 0m,
+
+                        // ===== EXTENDED COMPANY INFORMATION =====
+                        CompanyName = dr["CompanyName"] != DBNull.Value ? dr["CompanyName"].ToString() : string.Empty,
+                        CompanyNumber = dr["CompanyNumber"] != DBNull.Value ? dr["CompanyNumber"].ToString() : string.Empty,
+                        CompanyTurnover = dr["CompanyTurnover"] != DBNull.Value ? dr["CompanyTurnover"].ToString() : string.Empty,
+                        CompanyIndustry = dr["CompanyIndustry"] != DBNull.Value ? dr["CompanyIndustry"].ToString() : string.Empty,
+                        CompanyType = dr["CompanyType"] != DBNull.Value ? dr["CompanyType"].ToString() : string.Empty,
+                        CompanyJurisdiction = dr["CompanyJurisdiction"] != DBNull.Value ? dr["CompanyJurisdiction"].ToString() : string.Empty,
+                        CompanySize = dr["CompanySize"] != DBNull.Value ? dr["CompanySize"].ToString() : string.Empty,
+                        YearOfEstablishment = dr["YearOfEstablishment"] != DBNull.Value ? dr["YearOfEstablishment"].ToString() : string.Empty,
+
+                        // ===== EXTENDED PERSONAL INFORMATION =====
+                        Prefix = dr["Prefix"] != DBNull.Value ? dr["Prefix"].ToString() : string.Empty,
+                        MiddleName = dr["MiddleName"] != DBNull.Value ? dr["MiddleName"].ToString() : string.Empty,
+                        PositionInCompany = dr["PositionInCompany"] != DBNull.Value ? dr["PositionInCompany"].ToString() : string.Empty,
+
+                        // ===== SERVICES & BUSINESS INFORMATION =====
+                        OurServices = dr["OurServices"] != DBNull.Value ? dr["OurServices"].ToString() : string.Empty,
+                        AboutYourServices = dr["AboutYourServices"] != DBNull.Value ? dr["AboutYourServices"].ToString() : string.Empty,
+                        AboutUs = dr["AboutUs"] != DBNull.Value ? dr["AboutUs"].ToString() : string.Empty,
+                        FeesStructure = dr["FeesStructure"] != DBNull.Value ? dr["FeesStructure"].ToString() : string.Empty,
+                        Publications = dr["Publications"] != DBNull.Value ? dr["Publications"].ToString() : string.Empty,
+
+                        // ===== EXTENDED CONTACT INFORMATION =====
+                        Fax = dr["Fax"] != DBNull.Value ? dr["Fax"].ToString() : string.Empty,
+                        Website = dr["Website"] != DBNull.Value ? dr["Website"].ToString() : string.Empty,
+                        Twitter = dr["Twitter"] != DBNull.Value ? dr["Twitter"].ToString() : string.Empty,
+
+                        // ===== MEDIA & DOCUMENTS =====
+                        Photo = dr["Photo"] != DBNull.Value ? dr["Photo"].ToString() : string.Empty,
+                        Biography = dr["Biography"] != DBNull.Value ? dr["Biography"].ToString() : string.Empty
                     });
                 }
             }

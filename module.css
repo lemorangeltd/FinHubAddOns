@@ -1801,6 +1801,7 @@
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
+    color: #ffffff !important;
 }
 
 .priority-urgent {
@@ -3625,3 +3626,144 @@
     gap: 10px;
     flex-shrink: 0;
 }
+
+/* Additional cool badge styles - add any of these to your CSS */
+
+/* Gradient ring style */
+.count-badge.ring {
+    background: transparent;
+    border: 2px solid;
+    border-image: linear-gradient(135deg, #3d87dd, #8b5cf6) 1;
+    color: #3d87dd;
+    font-weight: 700;
+}
+
+/* Animated gradient */
+.count-badge.animated {
+    background: linear-gradient(45deg, #3d87dd, #8b5cf6, #ec4899, #3d87dd);
+    background-size: 300% 300%;
+    animation: gradient-shift 3s ease infinite;
+}
+
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Neumorphism style */
+.count-badge.neuro {
+    background: #e5e7eb;
+    color: #374151;
+    box-shadow: 6px 6px 12px rgba(163, 177, 198, 0.4), -6px -6px 12px rgba(255, 255, 255, 0.8), inset 2px 2px 4px rgba(163, 177, 198, 0.2), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+    border: none;
+}
+
+/* Floating style with shadow */
+.count-badge.floating {
+    background: linear-gradient(135deg, #3d87dd, #2563eb);
+    box-shadow: 0 8px 16px rgba(61, 135, 221, 0.3), 0 4px 8px rgba(61, 135, 221, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Minimal dot style */
+.count-badge.dot {
+    min-width: 8px;
+    height: 8px;
+    padding: 0;
+    font-size: 0;
+    background: #dc2626;
+    border-radius: 50%;
+    margin-left: 6px;
+    margin-top: -10px;
+}
+
+    /* For when you want just a dot indicator instead of numbers */
+    .count-badge.dot::after {
+        content: '';
+    }
+
+/* Retro 8-bit style */
+.count-badge.retro {
+    background: #10b981;
+    border: 2px solid #064e3b;
+    box-shadow: 2px 2px 0 #047857, 4px 4px 0 #065f46;
+    border-radius: 3px;
+    transform: none;
+    font-family: monospace;
+    font-weight: 900;
+}
+
+/* High contrast accessibility style */
+.count-badge.accessible {
+    background: #1f2937;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    font-weight: 700;
+    box-shadow: none;
+}
+
+/* Christmas/Holiday theme (seasonal) */
+.count-badge.holiday {
+    background: linear-gradient(135deg, #dc2626, #059669);
+    box-shadow: 0 0 10px rgba(220, 38, 38, 0.5), 0 0 20px rgba(5, 150, 105, 0.3);
+    animation: holiday-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes holiday-glow {
+    from {
+        box-shadow: 0 0 5px rgba(220, 38, 38, 0.5);
+    }
+
+    to {
+        box-shadow: 0 0 15px rgba(5, 150, 105, 0.7);
+    }
+}
+
+/* Count badge base */
+.count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    margin-left: 8px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffff;
+    background: #3d87dd;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+    /* Colors for different types */
+    .count-badge.timeline {
+        background: #059669; /* Green */
+    }
+
+    .count-badge.tasks {
+        background: #d97706; /* Orange */
+    }
+
+    .count-badge.ratings {
+        background: #eab308; /* Gold */
+    }
+
+    .count-badge.payments {
+        background: #64748b; /* Gray */
+    }
+
+    /* Larger numbers */
+    .count-badge.double-digit {
+        min-width: 24px;
+        border-radius: 12px;
+    }

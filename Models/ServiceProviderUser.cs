@@ -3,6 +3,7 @@
 namespace Lemorange.Modules.FinHubAddOns.Models
 {
     // Update existing ServiceProviderUser model
+
     public class ServiceProviderUser
     {
         // Basic User Info
@@ -48,6 +49,37 @@ namespace Lemorange.Modules.FinHubAddOns.Models
 
         // Rating Information
         public decimal AverageRating { get; set; }
+
+        // ===== EXTENDED COMPANY INFORMATION =====
+        public string CompanyName { get; set; }
+        public string CompanyNumber { get; set; }
+        public string CompanyTurnover { get; set; }
+        public string CompanyIndustry { get; set; }
+        public string CompanyType { get; set; }
+        public string CompanyJurisdiction { get; set; }
+        public string CompanySize { get; set; }
+        public string YearOfEstablishment { get; set; }
+
+        // ===== EXTENDED PERSONAL INFORMATION =====
+        public string Prefix { get; set; }
+        public string MiddleName { get; set; }
+        public string PositionInCompany { get; set; }
+
+        // ===== SERVICES & BUSINESS INFORMATION =====
+        public string OurServices { get; set; }
+        public string AboutYourServices { get; set; }
+        public string AboutUs { get; set; }
+        public string FeesStructure { get; set; }
+        public string Publications { get; set; }
+
+        // ===== EXTENDED CONTACT INFORMATION =====
+        public string Fax { get; set; }
+        public string Website { get; set; }
+        public string Twitter { get; set; }
+
+        // ===== MEDIA & DOCUMENTS =====
+        public string Photo { get; set; }
+        public string Biography { get; set; }
     }
 
     // Action/Activity model

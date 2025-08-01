@@ -479,54 +479,81 @@
                         <span class="nav-icon">📊</span>
                         Overview
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'timeline'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'timeline' }]">
                         <span class="nav-icon">📝</span>
-                        Timeline ({{profileData.actions.length}})
+                        Timeline
+                        <span v-if="profileData.actions.length > 0" 
+                              :class="getBadgeClasses(profileData.actions.length, 'timeline')">
+                            {{profileData.actions.length}}
+                        </span>
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'tasks'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'tasks' }]">
                         <span class="nav-icon">📋</span>
-                        Tasks ({{profileData.tasks.length}})
+                        Tasks
+                        <span v-if="profileData.tasks.length > 0" 
+                              :class="getBadgeClasses(profileData.tasks.length, 'tasks')">
+                            {{profileData.tasks.length}}
+                        </span>
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'projects'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'projects' }]">
                         <span class="nav-icon">💼</span>
-                        Projects ({{profileData.projects.length}})
+                        Projects
+                        <span v-if="profileData.projects.length > 0" 
+                              :class="getBadgeClasses(profileData.projects.length, 'projects')">
+                            {{profileData.projects.length}}
+                        </span>
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'ratings'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'ratings' }]">
                         <span class="nav-icon">⭐</span>
-                        Ratings ({{profileData.ratings.length}})
+                        Ratings
+                        <span v-if="profileData.ratings.length > 0" 
+                              :class="getBadgeClasses(profileData.ratings.length, 'ratings')">
+                            {{profileData.ratings.length}}
+                        </span>
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'profile'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'profile' }]">
                         <span class="nav-icon">👤</span>
                         Profile Data
                     </button>
-                    <!-- NEW TABS -->
+    
                     <button type="button" 
                             @click="activeProfileTab = 'edit'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'edit' }]">
                         <span class="nav-icon">✏️</span>
                         Edit Profile
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'payments'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'payments' }]">
                         <span class="nav-icon">💳</span>
                         Record Payment
                     </button>
+    
                     <button type="button" 
                             @click="activeProfileTab = 'payment-history'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'payment-history' }]">
                         <span class="nav-icon">📜</span>
-                        Payment History ({{paymentHistory.length}})
+                        Payment History
+                        <span v-if="paymentHistory.length > 0" 
+                              :class="getBadgeClasses(paymentHistory.length, 'payments')">
+                            {{paymentHistory.length}}
+                        </span>
                     </button>
                 </div>
 
@@ -541,7 +568,7 @@
                                 <div class="stats-grid">
                                     <div class="stat-item">
                                         <div class="stat-value">{{getTotalProjects()}}</div>
-                                        <div class="stat-label">Total Projects</div>
+                                        <div class="stat-label">Total Offers</div>
                                     </div>
                                     <div class="stat-item success">
                                         <div class="stat-value">{{getAwardedProjects()}}</div>
@@ -1059,16 +1086,24 @@
                                     </div>
                                     <div class="info-item" v-if="selectedProfile.Website">
                                         <label>Website:</label>
-                                        <span><a :href="selectedProfile.Website" target="_blank">{{selectedProfile.Website}}</a></span>
+                                        <span>
+                                            <a :href="selectedProfile.Website.startsWith('http') ? selectedProfile.Website : 'https://' + selectedProfile.Website" 
+                                               target="_blank" 
+                                               rel="noopener noreferrer">
+                                                {{selectedProfile.Website}}
+                                            </a>
+                                        </span>
                                     </div>
                                     <div class="info-item" v-if="selectedProfile.Twitter">
                                         <label>Twitter:</label>
-                                        <span>{{selectedProfile.Twitter}}</span>
-                                    </div>
-                                    <div class="info-item" v-if="selectedProfile.Skype">
-                                        <label>Skype:</label>
-                                        <span>{{selectedProfile.Skype}}</span>
-                                    </div>
+                                        <span>
+                                            <a :href="selectedProfile.Twitter.startsWith('http') ? selectedProfile.Twitter : 'https://x.com/' + selectedProfile.Twitter.replace('@', '')" 
+                                               target="_blank" 
+                                               rel="noopener noreferrer">
+                                                {{selectedProfile.Twitter}}
+                                            </a>
+                                        </span>
+                                    </div>                               
                                 </div>
                             </div>
 

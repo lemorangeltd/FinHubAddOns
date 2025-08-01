@@ -416,6 +416,61 @@ FinHubAddOns.ServiceProviderComponent = {
             });
         },
 
+        // Simple method to generate badge classes
+        getBadgeClasses: function (count, type) {
+            var classes = ['count-badge'];
+
+            // Add color class based on type
+            classes.push(type);
+
+            // Add size class for larger numbers
+            if (count >= 100) {
+                classes.push('triple-digit');
+            } else if (count >= 10) {
+                classes.push('double-digit');
+            }
+
+            return classes;
+        },
+
+        // Helper method to determine if badge should pulse
+        shouldPulseBadge: function (count, type) {
+            // Add logic here if you want certain badges to pulse
+            // For example, pulse if there are new items since last view
+
+            switch (type) {
+                case 'tasks':
+                    return count > 0 && this.hasNewTasks; // You'd need to track this
+                case 'timeline':
+                    return count > 10; // Lots of activity
+                case 'ratings':
+                    return count > 0 && this.hasNewRatings; // New ratings
+                default:
+                    return false;
+            }
+        },
+
+        // Optional: Method to get badge style variant
+        getBadgeVariant: function (type) {
+            // You can switch between different badge styles
+            // Options: 'default', 'neon', 'glass', 'flat', 'three-d'
+
+            var stylePreference = 'default'; // You could make this a user setting
+
+            switch (stylePreference) {
+                case 'neon':
+                    return 'neon';
+                case 'glass':
+                    return 'glass';
+                case 'flat':
+                    return 'flat';
+                case 'three-d':
+                    return 'three-d';
+                default:
+                    return '';
+            }
+        },
+
         post: function (url, data) {
             return $.ajax({
                 method: "POST",
