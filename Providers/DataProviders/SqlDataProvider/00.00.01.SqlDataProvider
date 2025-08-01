@@ -71,6 +71,78 @@ END
 GO
 
 -- =============================================
+-- Service Provider Actions/Notes Table
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinServiceProviderActions]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[FinServiceProviderActions](
+        [ActionID] [int] IDENTITY(1,1) NOT NULL,
+        [ServiceProviderUserID] [int] NOT NULL,
+        [ActionType] [nvarchar](50) NOT NULL, -- 'Note', 'Call', 'Email', 'Meeting', 'Task', 'StatusChange', 'Other'
+        [ActionTitle] [nvarchar](200) NOT NULL,
+        [ActionDescription] [nvarchar](MAX) NULL,
+        [ActionDate] [datetime] NOT NULL,
+        [CreatedByUserID] [int] NOT NULL,
+        [CreatedDate] [datetime] NOT NULL DEFAULT (GETDATE()),
+        [PortalID] [int] NOT NULL,
+        [IsPrivate] [bit] NOT NULL DEFAULT (0), -- Only visible to creator
+        [Priority] [nvarchar](20) NULL, -- 'Low', 'Medium', 'High', 'Urgent'
+        CONSTRAINT [PK_FinServiceProviderActions] PRIMARY KEY CLUSTERED ([ActionID] ASC),
+        CONSTRAINT [FK_FinServiceProviderActions_ServiceProvider] FOREIGN KEY([ServiceProviderUserID]) REFERENCES [dbo].[Users] ([UserID]),
+        CONSTRAINT [FK_FinServiceProviderActions_CreatedBy] FOREIGN KEY([CreatedByUserID]) REFERENCES [dbo].[Users] ([UserID])
+    )
+END
+GO
+
+-- =============================================
+-- Service Provider Ratings Table
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinServiceProviderRatings]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[FinServiceProviderRatings](
+        [RatingID] [int] IDENTITY(1,1) NOT NULL,
+        [ServiceProviderUserID] [int] NOT NULL,
+        [Rating] [int] NOT NULL, -- 1-5 stars
+        [RatingCategory] [nvarchar](50) NOT NULL, -- 'Overall', 'Communication', 'Quality', 'Reliability', 'Professionalism'
+        [Comments] [nvarchar](MAX) NULL,
+        [RatedByUserID] [int] NOT NULL,
+        [RatedDate] [datetime] NOT NULL DEFAULT (GETDATE()),
+        [PortalID] [int] NOT NULL,
+        CONSTRAINT [PK_FinServiceProviderRatings] PRIMARY KEY CLUSTERED ([RatingID] ASC),
+        CONSTRAINT [FK_FinServiceProviderRatings_ServiceProvider] FOREIGN KEY([ServiceProviderUserID]) REFERENCES [dbo].[Users] ([UserID]),
+        CONSTRAINT [FK_FinServiceProviderRatings_RatedBy] FOREIGN KEY([RatedByUserID]) REFERENCES [dbo].[Users] ([UserID]),
+        CONSTRAINT [CK_FinServiceProviderRatings_Rating] CHECK ([Rating] >= 1 AND [Rating] <= 5)
+    )
+END
+GO
+
+-- =============================================
+-- Service Provider Tasks Table
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[FinServiceProviderTasks]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[FinServiceProviderTasks](
+        [TaskID] [int] IDENTITY(1,1) NOT NULL,
+        [ServiceProviderUserID] [int] NOT NULL,
+        [TaskTitle] [nvarchar](200) NOT NULL,
+        [TaskDescription] [nvarchar](MAX) NULL,
+        [AssignedByUserID] [int] NOT NULL,
+        [AssignedToUserID] [int] NOT NULL,
+        [DueDate] [datetime] NULL,
+        [Status] [nvarchar](20) NOT NULL DEFAULT ('Pending'), -- 'Pending', 'InProgress', 'Completed', 'Cancelled'
+        [Priority] [nvarchar](20) NOT NULL DEFAULT ('Medium'), -- 'Low', 'Medium', 'High', 'Urgent'
+        [CreatedDate] [datetime] NOT NULL DEFAULT (GETDATE()),
+        [CompletedDate] [datetime] NULL,
+        [PortalID] [int] NOT NULL,
+        CONSTRAINT [PK_FinServiceProviderTasks] PRIMARY KEY CLUSTERED ([TaskID] ASC),
+        CONSTRAINT [FK_FinServiceProviderTasks_ServiceProvider] FOREIGN KEY([ServiceProviderUserID]) REFERENCES [dbo].[Users] ([UserID]),
+        CONSTRAINT [FK_FinServiceProviderTasks_AssignedBy] FOREIGN KEY([AssignedByUserID]) REFERENCES [dbo].[Users] ([UserID]),
+        CONSTRAINT [FK_FinServiceProviderTasks_AssignedTo] FOREIGN KEY([AssignedToUserID]) REFERENCES [dbo].[Users] ([UserID])
+    )
+END
+GO
+
+-- =============================================
 -- Drop and recreate the main stored procedure
 -- =============================================
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinHubAddOns_GetServiceProviderUsers')
@@ -194,7 +266,13 @@ BEGIN
              AND p.PortalID = @PortalID
              ORDER BY p.SubscriptionEndDate DESC)
         ELSE NULL
-        END AS CurrentPlan
+        END AS CurrentPlan,
+        
+        -- Average Rating
+        ISNULL((SELECT AVG(CAST(Rating AS FLOAT)) 
+                FROM FinServiceProviderRatings 
+                WHERE ServiceProviderUserID = u.UserID 
+                AND PortalID = @PortalID), 0) AS AverageRating
          
     FROM Users u
         INNER JOIN UserRoles ur ON u.UserID = ur.UserID
@@ -331,6 +409,185 @@ BEGIN
     FROM FinPayments
     WHERE PortalID = @PortalID
     AND (@PaymentType IS NULL OR PaymentType = @PaymentType)
+END
+GO
+
+-- =============================================
+-- Stored Procedure: Get Service Provider Profile Stats
+-- =============================================
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinServiceProvider_GetProfileStats')
+    DROP PROCEDURE [dbo].[FinServiceProvider_GetProfileStats]
+GO
+
+CREATE PROCEDURE [dbo].[FinServiceProvider_GetProfileStats]
+    @ServiceProviderUserID int,
+    @PortalID int
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Basic stats
+    SELECT 
+        -- Offers
+        COUNT(DISTINCT o.OfferID) as TotalOffers,
+        COUNT(DISTINCT CASE WHEN o.Status = 'Accepted' THEN o.OfferID END) as AcceptedOffers,
+        COUNT(DISTINCT CASE WHEN o.Status = 'Rejected' THEN o.OfferID END) as RejectedOffers,
+        COUNT(DISTINCT CASE WHEN o.Status = 'Pending' THEN o.OfferID END) as PendingOffers,
+        
+        -- Projects
+        COUNT(DISTINCT p.ProjectID) as TotalProjectsBidOn,
+        COUNT(DISTINCT CASE WHEN o.Status = 'Accepted' THEN p.ProjectID END) as ProjectsWon,
+        
+        -- Financial
+        ISNULL(SUM(CASE WHEN o.Status = 'Accepted' THEN o.Price ELSE 0 END), 0) as TotalRevenue,
+        ISNULL(AVG(CASE WHEN o.Status = 'Accepted' THEN o.Price ELSE NULL END), 0) as AverageProjectValue,
+        
+        -- Success Rate
+        CASE 
+            WHEN COUNT(o.OfferID) > 0 
+            THEN CAST(COUNT(CASE WHEN o.Status = 'Accepted' THEN 1 END) AS FLOAT) / COUNT(o.OfferID) * 100
+            ELSE 0 
+        END as SuccessRate,
+        
+        -- Average Rating
+        ISNULL((SELECT AVG(CAST(Rating AS FLOAT)) FROM FinServiceProviderRatings 
+         WHERE ServiceProviderUserID = @ServiceProviderUserID AND PortalID = @PortalID), 0) as AverageRating
+         
+    FROM FinOffers o
+    LEFT JOIN FinProjects p ON o.ProjectID = p.ProjectID
+    WHERE o.UserID = @ServiceProviderUserID 
+    AND o.PortalID = @PortalID
+END
+GO
+
+-- =============================================
+-- Stored Procedure: Get Service Provider Actions
+-- =============================================
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinServiceProvider_GetActions')
+    DROP PROCEDURE [dbo].[FinServiceProvider_GetActions]
+GO
+
+CREATE PROCEDURE [dbo].[FinServiceProvider_GetActions]
+    @ServiceProviderUserID int,
+    @PortalID int,
+    @CurrentUserID int
+AS
+BEGIN
+    SELECT 
+        a.ActionID,
+        a.ActionType,
+        a.ActionTitle,
+        a.ActionDescription,
+        a.ActionDate,
+        a.Priority,
+        a.IsPrivate,
+        a.CreatedDate,
+        u.DisplayName as CreatedByName
+    FROM FinServiceProviderActions a
+    INNER JOIN Users u ON a.CreatedByUserID = u.UserID
+    WHERE a.ServiceProviderUserID = @ServiceProviderUserID
+    AND a.PortalID = @PortalID
+    AND (a.IsPrivate = 0 OR a.CreatedByUserID = @CurrentUserID)
+    ORDER BY a.ActionDate DESC, a.CreatedDate DESC
+END
+GO
+
+-- =============================================
+-- Stored Procedure: Get Service Provider Tasks
+-- =============================================
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinServiceProvider_GetTasks')
+    DROP PROCEDURE [dbo].[FinServiceProvider_GetTasks]
+GO
+
+CREATE PROCEDURE [dbo].[FinServiceProvider_GetTasks]
+    @ServiceProviderUserID int,
+    @PortalID int
+AS
+BEGIN
+    SELECT 
+        t.TaskID,
+        t.TaskTitle,
+        t.TaskDescription,
+        t.DueDate,
+        t.Status,
+        t.Priority,
+        t.CreatedDate,
+        t.CompletedDate,
+        assignedBy.DisplayName as AssignedByName,
+        assignedTo.DisplayName as AssignedToName
+    FROM FinServiceProviderTasks t
+    INNER JOIN Users assignedBy ON t.AssignedByUserID = assignedBy.UserID
+    INNER JOIN Users assignedTo ON t.AssignedToUserID = assignedTo.UserID
+    WHERE t.ServiceProviderUserID = @ServiceProviderUserID
+    AND t.PortalID = @PortalID
+    ORDER BY 
+        CASE t.Status 
+            WHEN 'Pending' THEN 1
+            WHEN 'InProgress' THEN 2
+            WHEN 'Completed' THEN 3
+            WHEN 'Cancelled' THEN 4
+        END,
+        t.DueDate ASC
+END
+GO
+
+-- =============================================
+-- Stored Procedure: Get Service Provider Ratings
+-- =============================================
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinServiceProvider_GetRatings')
+    DROP PROCEDURE [dbo].[FinServiceProvider_GetRatings]
+GO
+
+CREATE PROCEDURE [dbo].[FinServiceProvider_GetRatings]
+    @ServiceProviderUserID int,
+    @PortalID int
+AS
+BEGIN
+    SELECT 
+        r.RatingID,
+        r.Rating,
+        r.RatingCategory,
+        r.Comments,
+        r.RatedDate,
+        u.DisplayName as RatedByName
+    FROM FinServiceProviderRatings r
+    INNER JOIN Users u ON r.RatedByUserID = u.UserID
+    WHERE r.ServiceProviderUserID = @ServiceProviderUserID
+    AND r.PortalID = @PortalID
+    ORDER BY r.RatedDate DESC
+END
+GO
+
+-- =============================================
+-- Stored Procedure: Get Service Provider Projects
+-- =============================================
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = N'FinServiceProvider_GetProjects')
+    DROP PROCEDURE [dbo].[FinServiceProvider_GetProjects]
+GO
+
+CREATE PROCEDURE [dbo].[FinServiceProvider_GetProjects]
+    @ServiceProviderUserID int,
+    @PortalID int
+AS
+BEGIN
+    SELECT 
+        p.ProjectID,
+        p.Title,
+        p.Description,
+        p.Budget,
+        p.BudgetCur,
+        p.DateCreated,
+        o.OfferID,
+        o.Price as OfferPrice,
+        o.PriceCur as OfferCurrency,
+        o.DateOffered,
+        o.Status as OfferStatus,
+        o.offeredmsg as OfferMessage
+    FROM FinOffers o
+    INNER JOIN FinProjects p ON o.ProjectID = p.ProjectID
+    WHERE o.UserID = @ServiceProviderUserID
+    AND o.PortalID = @PortalID
+    ORDER BY o.DateOffered DESC
 END
 GO
 

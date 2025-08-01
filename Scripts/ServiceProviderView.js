@@ -112,7 +112,48 @@ FinHubAddOns.ServiceProviderComponent = {
             availableYears: [],
 
             // Geographic breakdown toggle
-            showGeographicBreakdown: false
+            showGeographicBreakdown: false,
+
+            // Service Provider Profile
+            showProfilePanel: false,
+            selectedProfile: null,
+            profileData: {
+                stats: null,
+                actions: [],
+                tasks: [],
+                ratings: [],
+                projects: []
+            },
+
+            // Action form
+            showActionForm: false,
+            actionForm: {
+                actionType: 'Note',
+                actionTitle: '',
+                actionDescription: '',
+                actionDate: new Date().toISOString().split('T')[0],
+                isPrivate: false,
+                priority: 'Medium'
+            },
+
+            // Rating form
+            showRatingForm: false,
+            ratingForm: {
+                rating: 5,
+                ratingCategory: 'Overall',
+                comments: ''
+            },
+
+            // Task form
+            showTaskForm: false,
+            taskForm: {
+                taskTitle: '',
+                taskDescription: '',
+                assignedToUserId: null,
+                dueDate: '',
+                priority: 'Medium'
+            },
+            managers: []
         };
     },
 
@@ -310,6 +351,7 @@ FinHubAddOns.ServiceProviderComponent = {
         this.loadSubscriptionPlans();
         this.loadPaymentStatistics();
         this.initializeYearSelector();
+        this.loadManagers();
     },
 
     // MOUNTED MOVED HERE - OUT OF METHODS
@@ -339,6 +381,13 @@ FinHubAddOns.ServiceProviderComponent = {
 
         window.addEventListener('scroll', closePortalMenu, true);
         window.addEventListener('resize', closePortalMenu);
+
+        // Add handler for ESC key to close profile panel
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && self.showProfilePanel) {
+                self.closeProfile();
+            }
+        });
     },
 
     methods: {
@@ -373,6 +422,15 @@ FinHubAddOns.ServiceProviderComponent = {
 
             // Format with thousands separator and 2 decimal places
             return '€' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        },
+
+        // Format rating stars
+        formatRatingStars: function (rating) {
+            var stars = '';
+            for (var i = 1; i <= 5; i++) {
+                stars += i <= rating ? '★' : '☆';
+            }
+            return stars;
         },
 
         // NEW: Check if user has payment history (for distinguishing Never Paid vs Unpaid)
@@ -1000,7 +1058,10 @@ FinHubAddOns.ServiceProviderComponent = {
                 // Create menu element
                 var menu = document.createElement('div');
                 menu.className = 'action-menu action-menu-portal';
-                menu.innerHTML = '<a class="action-item" data-action="edit" data-userid="' + userId + '">' +
+                menu.innerHTML = '<a class="action-item" data-action="profile" data-userid="' + userId + '">' +
+                    '<span class="action-icon">👤</span> View Profile' +
+                    '</a>' +
+                    '<a class="action-item" data-action="edit" data-userid="' + userId + '">' +
                     '<span class="action-icon">✏️</span> Edit User' +
                     '</a>' +
                     '<a class="action-item" data-action="payment" data-userid="' + userId + '">' +
@@ -1041,6 +1102,9 @@ FinHubAddOns.ServiceProviderComponent = {
                     }
 
                     switch (action) {
+                        case 'profile':
+                            self.viewProfile(targetUser);
+                            break;
                         case 'edit':
                             self.editUser(targetUser);
                             break;
@@ -1075,6 +1139,278 @@ FinHubAddOns.ServiceProviderComponent = {
                     }
                 }, 10);
             });
+        },
+
+        // View Profile method
+        viewProfile: function (user) {
+            var self = this;
+            self.selectedProfile = user;
+            self.showProfilePanel = true;
+            self.isLoading = true;
+
+            // Reset forms
+            self.showActionForm = false;
+            self.showRatingForm = false;
+            self.showTaskForm = false;
+
+            self.get("GetServiceProviderProfile", { userId: user.UserId }).done(function (response) {
+                self.profileData = response;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading profile:", xhr.responseText);
+                toastr.error("Error loading profile data");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        closeProfile: function () {
+            this.showProfilePanel = false;
+            this.selectedProfile = null;
+            this.profileData = {
+                stats: null,
+                actions: [],
+                tasks: [],
+                ratings: [],
+                projects: []
+            };
+            // Reset forms
+            this.showActionForm = false;
+            this.showRatingForm = false;
+            this.showTaskForm = false;
+        },
+
+        // Action/Note methods
+        toggleActionForm: function () {
+            this.showActionForm = !this.showActionForm;
+            if (this.showActionForm) {
+                this.showRatingForm = false;
+                this.showTaskForm = false;
+            }
+        },
+
+        saveAction: function () {
+            var self = this;
+
+            if (!this.actionForm.actionTitle) {
+                toastr.warning("Please enter an action title");
+                return;
+            }
+
+            self.isLoading = true;
+
+            var data = {
+                ServiceProviderUserID: this.selectedProfile.UserId,
+                ActionType: this.actionForm.actionType,
+                ActionTitle: this.actionForm.actionTitle,
+                ActionDescription: this.actionForm.actionDescription,
+                ActionDate: this.actionForm.actionDate,
+                IsPrivate: this.actionForm.isPrivate,
+                Priority: this.actionForm.priority
+            };
+
+            self.post("AddAction", data).done(function (response) {
+                toastr.success("Action added successfully");
+                self.resetActionForm();
+                self.showActionForm = false;
+                // Reload profile data
+                self.viewProfile(self.selectedProfile);
+            }).fail(function (xhr, status, error) {
+                console.error("Error adding action:", xhr.responseText);
+                toastr.error("Error adding action");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        resetActionForm: function () {
+            this.actionForm = {
+                actionType: 'Note',
+                actionTitle: '',
+                actionDescription: '',
+                actionDate: new Date().toISOString().split('T')[0],
+                isPrivate: false,
+                priority: 'Medium'
+            };
+        },
+
+        // Rating methods
+        toggleRatingForm: function () {
+            this.showRatingForm = !this.showRatingForm;
+            if (this.showRatingForm) {
+                this.showActionForm = false;
+                this.showTaskForm = false;
+            }
+        },
+
+        saveRating: function () {
+            var self = this;
+
+            self.isLoading = true;
+
+            var data = {
+                ServiceProviderUserID: this.selectedProfile.UserId,
+                Rating: this.ratingForm.rating,
+                RatingCategory: this.ratingForm.ratingCategory,
+                Comments: this.ratingForm.comments
+            };
+
+            self.post("AddRating", data).done(function (response) {
+                toastr.success("Rating added successfully");
+                self.resetRatingForm();
+                self.showRatingForm = false;
+                // Reload profile data
+                self.viewProfile(self.selectedProfile);
+                // Also reload main data to update average rating
+                self.loadData();
+            }).fail(function (xhr, status, error) {
+                console.error("Error adding rating:", xhr.responseText);
+                toastr.error("Error adding rating");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        resetRatingForm: function () {
+            this.ratingForm = {
+                rating: 5,
+                ratingCategory: 'Overall',
+                comments: ''
+            };
+        },
+
+        // Task methods
+        toggleTaskForm: function () {
+            this.showTaskForm = !this.showTaskForm;
+            if (this.showTaskForm) {
+                this.showActionForm = false;
+                this.showRatingForm = false;
+            }
+        },
+
+        saveTask: function () {
+            var self = this;
+
+            if (!this.taskForm.taskTitle) {
+                toastr.warning("Please enter a task title");
+                return;
+            }
+
+            if (!this.taskForm.assignedToUserId) {
+                toastr.warning("Please select who to assign the task to");
+                return;
+            }
+
+            self.isLoading = true;
+
+            var data = {
+                ServiceProviderUserID: this.selectedProfile.UserId,
+                TaskTitle: this.taskForm.taskTitle,
+                TaskDescription: this.taskForm.taskDescription,
+                AssignedToUserID: this.taskForm.assignedToUserId,
+                DueDate: this.taskForm.dueDate || null,
+                Priority: this.taskForm.priority
+            };
+
+            self.post("AddTask", data).done(function (response) {
+                toastr.success("Task assigned successfully");
+                self.resetTaskForm();
+                self.showTaskForm = false;
+                // Reload profile data
+                self.viewProfile(self.selectedProfile);
+            }).fail(function (xhr, status, error) {
+                console.error("Error adding task:", xhr.responseText);
+                toastr.error("Error adding task");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        resetTaskForm: function () {
+            this.taskForm = {
+                taskTitle: '',
+                taskDescription: '',
+                assignedToUserId: null,
+                dueDate: '',
+                priority: 'Medium'
+            };
+        },
+
+        updateTaskStatus: function (task) {
+            var self = this;
+            var newStatus = '';
+
+            switch (task.Status) {
+                case 'Pending':
+                    newStatus = 'InProgress';
+                    break;
+                case 'InProgress':
+                    newStatus = 'Completed';
+                    break;
+                case 'Completed':
+                    newStatus = 'Pending';
+                    break;
+                default:
+                    return;
+            }
+
+            self.isLoading = true;
+
+            var data = {
+                TaskID: task.TaskID,
+                Status: newStatus
+            };
+
+            self.post("UpdateTaskStatus", data).done(function (response) {
+                toastr.success("Task status updated");
+                // Reload profile data
+                self.viewProfile(self.selectedProfile);
+            }).fail(function (xhr, status, error) {
+                console.error("Error updating task:", xhr.responseText);
+                toastr.error("Error updating task status");
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        loadManagers: function () {
+            var self = this;
+            self.get("GetManagers").done(function (response) {
+                self.managers = response;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading managers:", xhr.responseText);
+            });
+        },
+
+        getTaskStatusClass: function (status) {
+            switch (status) {
+                case 'Pending': return 'task-pending';
+                case 'InProgress': return 'task-inprogress';
+                case 'Completed': return 'task-completed';
+                case 'Cancelled': return 'task-cancelled';
+                default: return '';
+            }
+        },
+
+        getPriorityClass: function (priority) {
+            switch (priority) {
+                case 'Urgent': return 'priority-urgent';
+                case 'High': return 'priority-high';
+                case 'Medium': return 'priority-medium';
+                case 'Low': return 'priority-low';
+                default: return '';
+            }
+        },
+
+        getActionIcon: function (actionType) {
+            switch (actionType) {
+                case 'Note': return '📝';
+                case 'Call': return '📞';
+                case 'Email': return '✉️';
+                case 'Meeting': return '🤝';
+                case 'Task': return '📋';
+                case 'StatusChange': return '🔄';
+                default: return '📌';
+            }
         },
 
         // Replace your existing editUser method with this version that uses Vue.$set for proper reactivity:

@@ -16,11 +16,13 @@ namespace Lemorange.Modules.FinHubAddOns.Services
     {
         private readonly IUserRoleRepository _repository;
         private readonly IPaymentRepository _paymentRepository;
+        private readonly IServiceProviderProfileRepository _profileRepository;
 
         public UserRoleController()
         {
             _repository = new UserRoleRepository();
             _paymentRepository = new PaymentRepository();
+            _profileRepository = new ServiceProviderProfileRepository();
         }
 
         [HttpGet]
@@ -451,6 +453,222 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                 }
 
                 return Request.CreateResponse(HttpStatusCode.OK, years);
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        // Service Provider Profile endpoints
+        [HttpGet]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.View)]
+        public HttpResponseMessage GetServiceProviderProfile(int userId)
+        {
+            try
+            {
+                var portalId = ActiveModule.PortalID;
+                var currentUser = UserController.Instance.GetCurrentUserInfo();
+
+                var profile = new
+                {
+                    stats = _profileRepository.GetProfileStats(userId, portalId),
+                    actions = _profileRepository.GetActions(userId, portalId, currentUser.UserID),
+                    tasks = _profileRepository.GetTasks(userId, portalId),
+                    ratings = _profileRepository.GetRatings(userId, portalId),
+                    projects = _profileRepository.GetProjects(userId, portalId)
+                };
+
+                return Request.CreateResponse(HttpStatusCode.OK, profile);
+            }
+            catch (Exception ex)
+            {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.Edit)]
+        public HttpResponseMessage AddAction(AddActionRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Invalid request");
+                }
+
+                var currentUser = UserController.Instance.GetCurrentUserInfo();
+                var action = new ServiceProviderAction
+                {
+                    ServiceProviderUserID = request.ServiceProviderUserID,
+                    ActionType = request.ActionType,
+                    ActionTitle = request.ActionTitle,
+                    ActionDescription = request.ActionDescription,
+                    ActionDate = request.ActionDate,
+                    CreatedByUserID = currentUser.UserID,
+                    PortalID = ActiveModule.PortalID,
+                    IsPrivate = request.IsPrivate,
+                    Priority = request.Priority
+                };
+
+                var actionId = _profileRepository.AddAction(action);
+
+                if (actionId > 0)
+                {
+                    return Request.CreateResponse(HttpStatusCode.OK, new { success = true, actionId = actionId });
+                }
+                else
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed to add action");
+                }
+            }
+            catch (Exception ex)
+            {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.Edit)]
+        public HttpResponseMessage AddRating(AddRatingRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Invalid request");
+                }
+
+                var currentUser = UserController.Instance.GetCurrentUserInfo();
+                var rating = new ServiceProviderRating
+                {
+                    ServiceProviderUserID = request.ServiceProviderUserID,
+                    Rating = request.Rating,
+                    RatingCategory = request.RatingCategory,
+                    Comments = request.Comments,
+                    RatedByUserID = currentUser.UserID,
+                    PortalID = ActiveModule.PortalID
+                };
+
+                var ratingId = _profileRepository.AddRating(rating);
+
+                if (ratingId > 0)
+                {
+                    return Request.CreateResponse(HttpStatusCode.OK, new { success = true, ratingId = ratingId });
+                }
+                else
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed to add rating");
+                }
+            }
+            catch (Exception ex)
+            {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.Edit)]
+        public HttpResponseMessage AddTask(AddTaskRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Invalid request");
+                }
+
+                var currentUser = UserController.Instance.GetCurrentUserInfo();
+                var task = new ServiceProviderTask
+                {
+                    ServiceProviderUserID = request.ServiceProviderUserID,
+                    TaskTitle = request.TaskTitle,
+                    TaskDescription = request.TaskDescription,
+                    AssignedByUserID = currentUser.UserID,
+                    AssignedToUserID = request.AssignedToUserID,
+                    DueDate = request.DueDate,
+                    Priority = request.Priority ?? "Medium",
+                    Status = "Pending",
+                    PortalID = ActiveModule.PortalID
+                };
+
+                var taskId = _profileRepository.AddTask(task);
+
+                if (taskId > 0)
+                {
+                    return Request.CreateResponse(HttpStatusCode.OK, new { success = true, taskId = taskId });
+                }
+                else
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed to add task");
+                }
+            }
+            catch (Exception ex)
+            {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.Edit)]
+        public HttpResponseMessage UpdateTaskStatus(UpdateTaskStatusRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Invalid request");
+                }
+
+                var currentUser = UserController.Instance.GetCurrentUserInfo();
+                var success = _profileRepository.UpdateTaskStatus(request.TaskID, request.Status, currentUser.UserID);
+
+                if (success)
+                {
+                    return Request.CreateResponse(HttpStatusCode.OK, new { success = true });
+                }
+                else
+                {
+                    return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed to update task status");
+                }
+            }
+            catch (Exception ex)
+            {
+                DotNetNuke.Services.Exceptions.Exceptions.LogException(ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
+        [HttpGet]
+        [DnnModuleAuthorize(AccessLevel = SecurityAccessLevel.View)]
+        public HttpResponseMessage GetManagers()
+        {
+            try
+            {
+                var portalId = ActiveModule.PortalID;
+                var managerIds = _profileRepository.GetManagerUserIds(portalId);
+                var managers = new List<object>();
+
+                foreach (var managerId in managerIds)
+                {
+                    var user = UserController.GetUserById(portalId, managerId);
+                    if (user != null)
+                    {
+                        managers.Add(new
+                        {
+                            userId = user.UserID,
+                            displayName = user.DisplayName,
+                            email = user.Email
+                        });
+                    }
+                }
+
+                return Request.CreateResponse(HttpStatusCode.OK, managers);
             }
             catch (Exception ex)
             {
