@@ -154,7 +154,9 @@ FinHubAddOns.ServiceProviderComponent = {
                 dueDate: '',
                 priority: 'Medium'
             },
-            managers: []
+            managers: [], 
+
+            expandedProjects: {} // Track which project descriptions are expanded
         };
     },
 
@@ -166,6 +168,17 @@ FinHubAddOns.ServiceProviderComponent = {
     },
 
     watch: {
+        'activeProfileTab': function (newTab, oldTab) {
+            if (newTab === 'edit' && this.selectedProfile) {
+                this.initializeEditForm();
+            }
+            if (newTab === 'payments' && this.selectedProfile) {
+                this.initializePaymentForm();
+            }
+            if (newTab === 'payment-history' && this.selectedProfile) {
+                this.loadPaymentHistoryForTab();
+            }
+        },
         'editForm.isAuthorized': function (newVal, oldVal) {
             console.log('Authorization checkbox changed from', oldVal, 'to', newVal);
         },
@@ -509,6 +522,104 @@ FinHubAddOns.ServiceProviderComponent = {
                     return 'Expired + Never Paid';
                 }
             }
+        },
+
+        // Quick debug methods - add these temporarily to see what's happening:
+
+        // Temporary method to see why total value is 0 TEMP TEMP 
+        debugProjectValues: function () {
+            if (!this.profileData.projects) {
+                console.log("No projects found");
+                return;
+            }
+
+            console.log("=== DEBUGGING PROJECT VALUES ===");
+            console.log("Total projects:", this.profileData.projects.length);
+
+            this.profileData.projects.forEach(function (project, index) {
+                console.log("\nProject", index + 1, ":");
+                console.log("  ProjectID:", project.ProjectID);
+                console.log("  Title:", project.Title);
+                console.log("  OfferStatus:", project.OfferStatus, "(type:", typeof project.OfferStatus, ")");
+                console.log("  OfferPrice:", project.OfferPrice, "(type:", typeof project.OfferPrice, ")");
+                console.log("  Budget:", project.Budget, "(type:", typeof project.Budget, ")");
+                console.log("  Amount:", project.Amount, "(type:", typeof project.Amount, ")");
+                console.log("  IsWon by current method:", this.isProjectWon(project));
+
+                // Check all fields that might indicate winning
+                Object.keys(project).forEach(function (key) {
+                    if (key.toLowerCase().includes('won') ||
+                        key.toLowerCase().includes('award') ||
+                        key.toLowerCase().includes('accept') ||
+                        key.toLowerCase().includes('status')) {
+                        console.log("  " + key + ":", project[key]);
+                    }
+                });
+            }.bind(this));
+        },
+
+        // Call this in console to see the issue: TEMP TEMP 
+        // window.ServiceProviderApp_[moduleId].$children[0].debugProjectValues()
+
+        // Quick test method to bypass isProjectWon check
+        getTotalProjectValueTest: function () {
+            if (!this.profileData.projects) return 0;
+
+            // Test 1: Sum ALL project values regardless of status
+            var totalAll = this.profileData.projects.reduce(function (sum, project) {
+                var value = parseFloat(project.OfferPrice || project.Budget || project.Amount || 0);
+                return sum + value;
+            }, 0);
+
+            console.log("Total of ALL project values:", totalAll);
+
+            // Test 2: Sum only projects where isProjectWon returns true
+            var totalWon = this.profileData.projects.reduce(function (sum, project) {
+                if (this.isProjectWon(project)) {
+                    var value = parseFloat(project.OfferPrice || project.Budget || project.Amount || 0);
+                    return sum + value;
+                }
+                return sum;
+            }.bind(this), 0);
+
+            console.log("Total of WON project values:", totalWon);
+
+            return totalWon;
+        },
+
+        // Temporary method to calculate total project value with debug logs TEMP TEMP
+        getTotalProjectValueTemp: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            console.log("Calculating total project value...");
+
+            var total = this.profileData.projects.reduce(function (sum, project) {
+                var value = 0;
+
+                // Try different fields
+                if (project.OfferPrice) {
+                    value = parseFloat(project.OfferPrice);
+                    console.log("Using OfferPrice:", value, "for project", project.ProjectID);
+                } else if (project.Budget) {
+                    value = parseFloat(project.Budget);
+                    console.log("Using Budget:", value, "for project", project.ProjectID);
+                } else if (project.Amount) {
+                    value = parseFloat(project.Amount);
+                    console.log("Using Amount:", value, "for project", project.ProjectID);
+                }
+
+                // Only count if this SP won (you'll need to adjust this logic)
+                if (self.isProjectWon(project)) {
+                    console.log("Project", project.ProjectID, "was won, adding", value);
+                    return sum + value;
+                } else {
+                    console.log("Project", project.ProjectID, "was not won, skipping");
+                    return sum;
+                }
+            }, 0);
+
+            console.log("Total project value:", total);
+            return total;
         },
 
         // NEW: Check if user has valid subscription dates
@@ -965,6 +1076,186 @@ FinHubAddOns.ServiceProviderComponent = {
             this.setRegistrationPeriod('last30days');
         },
 
+        // Get total number of projects
+        getTotalProjects: function () {
+            if (!this.profileData.projects) return 0;
+            return this.profileData.projects.length;
+        },
+
+        // Get number of awarded projects (status 2 or 4)
+        getAwardedProjects: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            return this.profileData.projects.filter(function (project) {
+                return self.isProjectWonByThisSP(project);
+            }).length;
+        },
+
+        // Get number of pending projects (status 0 or 1)
+        getPendingProjects: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            return this.profileData.projects.filter(function (project) {
+                return self.isProjectPending(project);
+            }).length;
+        },
+
+        // Get number of rejected projects (status 3)
+        getRejectedProjects: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            return this.profileData.projects.filter(function (project) {
+                return self.isProjectRejected(project);
+            }).length;
+        },
+
+        // Get total value of all awarded projects
+        getTotalProjectValue: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            return this.profileData.projects.reduce(function (total, project) {
+                if (self.isProjectWonByThisSP(project)) {
+                    return total + self.getProjectValue(project);
+                }
+                return total;
+            }, 0);
+        },
+
+        //TEMP TEMP: Debugging method to log project data   
+        debugProjectData: function () {
+            if (!this.profileData.projects || this.profileData.projects.length === 0) {
+                console.log("No projects available");
+                return;
+            }
+
+            console.log("=== PROJECT DATA DEBUG ===");
+            console.log("Total projects:", this.profileData.projects.length);
+
+            // Log the first project to see all available fields
+            console.log("Sample project data:", this.profileData.projects[0]);
+
+            // Log all unique field names across all projects
+            var allFields = new Set();
+            this.profileData.projects.forEach(function (project) {
+                Object.keys(project).forEach(function (key) {
+                    allFields.add(key);
+                });
+            });
+            console.log("Available fields:", Array.from(allFields).sort());
+
+            // Log status values and offer prices
+            this.profileData.projects.forEach(function (project, index) {
+                console.log("Project " + index + ":", {
+                    ProjectID: project.ProjectID,
+                    Title: project.Title,
+                    OfferStatus: project.OfferStatus,
+                    Status: project.Status, // Might be different field
+                    OfferPrice: project.OfferPrice,
+                    Budget: project.Budget,
+                    Amount: project.Amount, // Might be the field we need
+                    Value: project.Value, // Might be the field we need
+                    // Add any other fields that might contain the value
+                });
+            });
+        },
+
+        isProjectPending: function (project) {
+            // This depends on your data structure
+            // Option 1: Check if project status indicates it's still open
+            if (project.ProjectStatus === 'Open' || project.ProjectStatus === 'Active') return true;
+            if (project.Status === 'Open' || project.Status === 'Active') return true;
+
+            // Option 2: Check numeric status
+            if (typeof project.OfferStatus === 'number' || !isNaN(project.OfferStatus)) {
+                var numericStatus = parseInt(project.OfferStatus);
+                return numericStatus === 0 || numericStatus === 1; // Adjust based on your data
+            }
+
+            // Option 3: Check if no one has won yet
+            if (project.IsAwarded === false || project.IsAwarded === 0) return true;
+
+            return false;
+        },
+
+        isProjectRejected: function (project) {
+            // This means another SP won, but not this one
+            // Option 1: Check if project is awarded but this SP didn't win
+            if (project.IsAwarded === true || project.IsAwarded === 1) {
+                return !this.isProjectWonByThisSP(project);
+            }
+
+            // Option 2: Check status field
+            if (typeof project.OfferStatus === 'number' || !isNaN(project.OfferStatus)) {
+                var numericStatus = parseInt(project.OfferStatus);
+                return numericStatus === 3; // Or whatever status means "rejected"
+            }
+
+            // Option 3: String status
+            if (typeof project.OfferStatus === 'string') {
+                return project.OfferStatus.toLowerCase() === 'rejected';
+            }
+
+            return false;
+        },
+
+        isProjectWonByThisSP: function (project) {
+            // Method 1: Check if OfferStatus indicates this SP won
+            if (typeof project.OfferStatus === 'number' || !isNaN(project.OfferStatus)) {
+                var numericStatus = parseInt(project.OfferStatus);
+                // You'll need to tell me which status numbers mean "this SP won"
+                return numericStatus === 2 || numericStatus === 4; // Adjust based on your data
+            }
+
+            // Method 2: Check if there's a field indicating this SP won
+            if (project.IsWon === true || project.IsWon === 1) return true;
+            if (project.Won === true || project.Won === 1) return true;
+            if (project.Awarded === true || project.Awarded === 1) return true;
+
+            // Method 3: String status check
+            if (typeof project.OfferStatus === 'string') {
+                var wonStatuses = ['won', 'awarded', 'accepted', 'completed'];
+                return wonStatuses.includes(project.OfferStatus.toLowerCase());
+            }
+
+            return false;
+        },
+
+        // Get average project value of awarded projects
+        getAverageProjectValue: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            var wonProjects = this.profileData.projects.filter(function (project) {
+                return self.isProjectWonByThisSP(project);
+            });
+
+            if (wonProjects.length === 0) return 0;
+
+            var totalValue = wonProjects.reduce(function (total, project) {
+                return total + self.getProjectValue(project);
+            }, 0);
+
+            return totalValue / wonProjects.length;
+        },
+
+        getProjectValue: function (project) {
+            // Try different possible field names for project value
+            return parseFloat(project.OfferPrice) ||
+                parseFloat(project.Amount) ||
+                parseFloat(project.Value) ||
+                parseFloat(project.ProjectValue) ||
+                parseFloat(project.Budget) ||
+                0;
+        },
+
+
+        // Get success rate (awarded / total projects * 100)
+        getSuccessRate: function () {
+            var total = this.getTotalProjects();
+            if (total === 0) return 0;
+            var awarded = this.getAwardedProjects();
+            return Math.round((awarded / total) * 100);
+        },
+
         // Tooltip functionality
         showTooltip: function (event, text) {
             var tooltip = document.getElementById('global-tooltip');
@@ -1000,6 +1291,89 @@ FinHubAddOns.ServiceProviderComponent = {
             if (tooltip) {
                 tooltip.style.display = 'none';
             }
+        },
+
+        // Check if project was won
+        isProjectWon: function (project) {
+            if (!project.OfferStatus) return false;
+            var wonStatuses = ['accepted', 'won', 'awarded', 'completed'];
+            return wonStatuses.includes(project.OfferStatus.toLowerCase());
+        },
+
+        // Truncate HTML content while preserving tags
+        truncateHtml: function (html, maxLength) {
+            if (!html) return '';
+
+            // Strip HTML tags for length calculation
+            var textContent = html.replace(/<[^>]*>/g, '');
+
+            if (textContent.length <= maxLength) {
+                return html;
+            }
+
+            // Create a temporary element to safely truncate HTML
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            var truncated = '';
+            var currentLength = 0;
+
+            function traverseNodes(node) {
+                if (currentLength >= maxLength) return;
+
+                if (node.nodeType === 3) { // Text node
+                    var remainingLength = maxLength - currentLength;
+                    var nodeText = node.textContent;
+
+                    if (nodeText.length <= remainingLength) {
+                        truncated += nodeText;
+                        currentLength += nodeText.length;
+                    } else {
+                        truncated += nodeText.substring(0, remainingLength) + '...';
+                        currentLength = maxLength;
+                    }
+                } else if (node.nodeType === 1) { // Element node
+                    var tagName = node.tagName.toLowerCase();
+                    truncated += '<' + tagName;
+
+                    // Add attributes
+                    for (var i = 0; i < node.attributes.length; i++) {
+                        var attr = node.attributes[i];
+                        truncated += ' ' + attr.name + '="' + attr.value + '"';
+                    }
+                    truncated += '>';
+
+                    // Process child nodes
+                    for (var j = 0; j < node.childNodes.length; j++) {
+                        traverseNodes(node.childNodes[j]);
+                        if (currentLength >= maxLength) break;
+                    }
+
+                    truncated += '</' + tagName + '>';
+                }
+            }
+
+            for (var k = 0; k < tempDiv.childNodes.length; k++) {
+                traverseNodes(tempDiv.childNodes[k]);
+                if (currentLength >= maxLength) break;
+            }
+
+            return truncated;
+        },
+
+        // Toggle project description expansion
+        toggleProjectDescription: function (projectId) {
+            if (!this.expandedProjects) {
+                this.$set(this, 'expandedProjects', {});
+            }
+
+            this.$set(this.expandedProjects, projectId, !this.expandedProjects[projectId]);
+        },
+
+        // Format numbers with thousands separator
+        formatNumber: function (number) {
+            if (number === null || number === undefined) return '0';
+            return parseFloat(number).toLocaleString();
         },
 
         // Add this method to handle the action menu as a portal (append to body)
@@ -1152,12 +1526,276 @@ FinHubAddOns.ServiceProviderComponent = {
             });
         },
 
+        initializeEditForm: function () {
+            if (!this.selectedProfile) return;
+
+            var user = this.selectedProfile;
+
+            // Initialize edit form with current user data
+            this.editForm = {
+                firstName: user.FirstName || '',
+                lastName: user.LastName || '',
+                displayName: user.DisplayName || '',
+                email: user.Email || '',
+                phone: user.Phone || '',
+                mobile: user.Mobile || '',
+                street: user.Street || '',
+                city: user.City || '',
+                stateRegion: user.StateRegion || '',
+                postalCode: user.PostalCode || '',
+                country: user.Country || '',
+                roleExpirationDate: '',
+                isAuthorized: user.IsAuthorized === true || user.IsAuthorized === 1 || user.IsAuthorized === '1',
+                isDeleted: user.IsDeleted === true || user.IsDeleted === 1 || user.IsDeleted === '1'
+            };
+
+            // Set role expiration date if exists
+            if (user.RoleExpirationDate) {
+                var date = new Date(user.RoleExpirationDate);
+                var year = date.getFullYear();
+                var month = ('0' + (date.getMonth() + 1)).slice(-2);
+                var day = ('0' + date.getDate()).slice(-2);
+                this.editForm.roleExpirationDate = year + '-' + month + '-' + day;
+            }
+        },
+
+        initializePaymentForm: function () {
+            if (!this.selectedProfile) return;
+
+            var user = this.selectedProfile;
+
+            this.paymentForm = {
+                userId: user.UserId,
+                userName: user.DisplayName,
+                planId: null,
+                amount: 0,
+                discountAmount: 0,
+                amountPaid: 0,
+                paymentDate: new Date().toISOString().split('T')[0],
+                paymentMethod: 'BankTransfer',
+                referenceNumber: '',
+                notes: '',
+                subscriptionStartDate: new Date().toISOString().split('T')[0],
+                subscriptionEndDate: ''
+            };
+
+            // Set default end date based on current subscription
+            if (user.SubscriptionEndDate) {
+                var currentEnd = new Date(user.SubscriptionEndDate);
+                if (currentEnd > new Date()) {
+                    // If subscription is still active, start from its end date
+                    this.paymentForm.subscriptionStartDate = new Date(currentEnd.getTime() + 86400000).toISOString().split('T')[0];
+                }
+            }
+        },
+
+        saveUserEditFromTab: function () {
+            // Use the same logic as saveUserEdit but don't close the entire profile panel
+            var self = this;
+
+            try {
+                console.log("Save button clicked from profile tab", this.editForm);
+
+                // Store the previous values
+                var wasDeleted = this.selectedProfile.IsDeleted === true || this.selectedProfile.IsDeleted === 1;
+                var wasAuthorized = this.selectedProfile.IsAuthorized === true || this.selectedProfile.IsAuthorized === 1;
+
+                // Convert form values to proper booleans
+                var isNowDeleted = this.editForm.isDeleted === true;
+                var isNowAuthorized = this.editForm.isAuthorized === true;
+
+                // Only confirm if changing deletion status from false to true
+                if (isNowDeleted && !wasDeleted) {
+                    if (!confirm('Are you sure you want to soft delete this user? This action can be reversed by an administrator.')) {
+                        return;
+                    }
+                }
+
+                // Only confirm if changing authorization status from true to false
+                if (!isNowAuthorized && wasAuthorized) {
+                    if (!confirm('Are you sure you want to unauthorize this user? They will not be able to access the portal.')) {
+                        return;
+                    }
+                }
+
+                self.isLoading = true;
+
+                var data = {
+                    UserId: this.selectedProfile.UserId,
+                    FirstName: this.editForm.firstName,
+                    LastName: this.editForm.lastName,
+                    DisplayName: this.editForm.displayName,
+                    Phone: this.editForm.phone,
+                    Mobile: this.editForm.mobile,
+                    Street: this.editForm.street,
+                    City: this.editForm.city,
+                    StateRegion: this.editForm.stateRegion,
+                    PostalCode: this.editForm.postalCode,
+                    Country: this.editForm.country,
+                    RoleExpirationDate: this.editForm.roleExpirationDate || null,
+                    IsAuthorized: isNowAuthorized,
+                    IsDeleted: isNowDeleted
+                };
+
+                self.post("UpdateUser", data).done(function (response) {
+                    var message = "User updated successfully";
+
+                    // Check what actually changed
+                    if (isNowDeleted && !wasDeleted) {
+                        message = "User has been soft deleted";
+                    } else if (!isNowDeleted && wasDeleted) {
+                        message = "User has been restored";
+                    } else if (!isNowAuthorized && wasAuthorized) {
+                        message = "User has been unauthorized";
+                    } else if (isNowAuthorized && !wasAuthorized) {
+                        message = "User has been authorized";
+                    }
+
+                    toastr.success(message);
+
+                    // Update the selected profile with new data
+                    Object.assign(self.selectedProfile, {
+                        FirstName: data.FirstName,
+                        LastName: data.LastName,
+                        DisplayName: data.DisplayName,
+                        Phone: data.Phone,
+                        Mobile: data.Mobile,
+                        Street: data.Street,
+                        City: data.City,
+                        StateRegion: data.StateRegion,
+                        PostalCode: data.PostalCode,
+                        Country: data.Country,
+                        RoleExpirationDate: data.RoleExpirationDate,
+                        IsAuthorized: data.IsAuthorized,
+                        IsDeleted: data.IsDeleted
+                    });
+
+                    // Reload main data to reflect changes in the table
+                    self.loadData();
+                }).fail(function (xhr, status, error) {
+                    console.error("Update Error:", xhr.responseText);
+                    var errorMsg = "Error updating user";
+                    if (xhr.responseJSON && xhr.responseJSON.Message) {
+                        errorMsg = xhr.responseJSON.Message;
+                    }
+                    toastr.error(errorMsg);
+                }).always(function () {
+                    self.isLoading = false;
+                });
+            } catch (error) {
+                console.error("Error in saveUserEditFromTab:", error);
+                toastr.error("An error occurred while saving: " + error.message);
+                self.isLoading = false;
+            }
+        },
+
+        savePaymentFromTab: function () {
+            var self = this;
+
+            if (!this.paymentForm.planId) {
+                toastr.warning("Please select a subscription plan");
+                return;
+            }
+
+            if (!this.paymentForm.referenceNumber) {
+                toastr.warning("Please enter a reference number");
+                return;
+            }
+
+            self.isLoading = true;
+
+            var data = {
+                UserID: this.paymentForm.userId,
+                PaymentType: 'ServiceProvider',
+                PlanID: this.paymentForm.planId,
+                Amount: this.paymentForm.amount,
+                DiscountAmount: this.paymentForm.discountAmount,
+                PaymentDate: this.paymentForm.paymentDate,
+                PaymentMethod: this.paymentForm.paymentMethod,
+                ReferenceNumber: this.paymentForm.referenceNumber,
+                Notes: this.paymentForm.notes,
+                SubscriptionStartDate: this.paymentForm.subscriptionStartDate,
+                SubscriptionEndDate: this.paymentForm.subscriptionEndDate
+            };
+
+            self.post("RecordPayment", data).done(function (response) {
+                toastr.success("Payment recorded successfully");
+
+                // Reset payment form
+                self.initializePaymentForm();
+
+                // Update role expiration date to match subscription end date
+                var updateData = {
+                    UserId: data.UserID,
+                    ExpirationDate: data.SubscriptionEndDate
+                };
+
+                self.post("UpdateRoleExpiration", updateData).done(function () {
+                    // Update the selected profile
+                    self.selectedProfile.RoleExpirationDate = data.SubscriptionEndDate;
+                    self.selectedProfile.SubscriptionEndDate = data.SubscriptionEndDate;
+
+                    // Reload main data and statistics
+                    self.loadData();
+                    self.loadPaymentStatistics();
+
+                    // Switch to payment history tab to show the new payment
+                    self.activeProfileTab = 'payment-history';
+                    self.loadPaymentHistoryForTab();
+                }).fail(function (xhr) {
+                    console.error("Error updating role expiration:", xhr.responseText);
+                    // Still reload data even if role expiration update failed
+                    self.loadData();
+                    self.loadPaymentStatistics();
+                });
+            }).fail(function (xhr, status, error) {
+                console.error("Payment Error:", xhr.responseText);
+                var errorMsg = "Error recording payment";
+                if (xhr.responseJSON && xhr.responseJSON.Message) {
+                    errorMsg = xhr.responseJSON.Message;
+                }
+                toastr.error(errorMsg);
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
+        // method to load payment history for the tab
+        loadPaymentHistoryForTab: function () {
+            if (!this.selectedProfile) return;
+
+            var self = this;
+            self.isLoading = true;
+
+            self.get("GetPaymentHistory", {
+                userId: this.selectedProfile.UserId,
+                paymentType: 'ServiceProvider'
+            }).done(function (response) {
+                self.paymentHistory = response;
+            }).fail(function (xhr, status, error) {
+                console.error("Error loading payment history for tab:", xhr.responseText);
+                toastr.error("Error loading payment history");
+                self.paymentHistory = [];
+            }).always(function () {
+                self.isLoading = false;
+            });
+        },
+
         // View Profile method
+        // Alternative viewProfile method (if Promise.all doesn't work):
+
+        // Update your viewProfile method to load payment history for the count:
+
         viewProfile: function (user) {
             var self = this;
             self.selectedProfile = user;
             self.showProfilePanel = true;
-            self.activeProfileTab = 'overview';
+
+            // Only set to overview if no tab is currently active or if panel was closed
+            if (!self.activeProfileTab || !self.showProfilePanel) {
+                self.activeProfileTab = 'overview';
+            }
+
             self.isLoading = true;
 
             // Reset forms
@@ -1165,12 +1803,31 @@ FinHubAddOns.ServiceProviderComponent = {
             self.showRatingForm = false;
             self.showTaskForm = false;
 
-            self.get("GetServiceProviderProfile", { userId: user.UserId }).done(function (response) {
-                self.profileData = response;
-            }).fail(function (xhr, status, error) {
-                console.error("Error loading profile:", xhr.responseText);
+            // Load profile data and payment history for counts
+            var profilePromise = self.get("GetServiceProviderProfile", { userId: user.UserId });
+            var paymentHistoryPromise = self.get("GetPaymentHistory", {
+                userId: user.UserId,
+                paymentType: 'ServiceProvider'
+            });
+
+            Promise.all([profilePromise, paymentHistoryPromise]).then(function (responses) {
+                self.profileData = responses[0];
+                self.paymentHistory = responses[1];
+
+                // Initialize edit form when profile data is loaded
+                self.initializeEditForm();
+                self.initializePaymentForm();
+            }).catch(function (error) {
+                console.error("Error loading profile data:", error);
                 toastr.error("Error loading profile data");
-            }).always(function () {
+
+                // Fallback - load just profile data
+                self.get("GetServiceProviderProfile", { userId: user.UserId }).done(function (response) {
+                    self.profileData = response;
+                    self.initializeEditForm();
+                    self.initializePaymentForm();
+                });
+            }).finally(function () {
                 self.isLoading = false;
             });
         },
@@ -1190,6 +1847,9 @@ FinHubAddOns.ServiceProviderComponent = {
             this.showActionForm = false;
             this.showRatingForm = false;
             this.showTaskForm = false;
+
+            // Reset expanded projects
+            this.expandedProjects = {};
         },
 
         // Action/Note methods
@@ -1225,8 +1885,13 @@ FinHubAddOns.ServiceProviderComponent = {
                 toastr.success("Action added successfully");
                 self.resetActionForm();
                 self.showActionForm = false;
-                // Reload profile data
-                self.viewProfile(self.selectedProfile);
+
+                // Reload profile data without changing the active tab
+                self.get("GetServiceProviderProfile", { userId: self.selectedProfile.UserId }).done(function (response) {
+                    self.profileData = response;
+                }).fail(function (xhr, status, error) {
+                    console.error("Error reloading profile:", xhr.responseText);
+                });
             }).fail(function (xhr, status, error) {
                 console.error("Error adding action:", xhr.responseText);
                 toastr.error("Error adding action");
@@ -1271,8 +1936,14 @@ FinHubAddOns.ServiceProviderComponent = {
                 toastr.success("Rating added successfully");
                 self.resetRatingForm();
                 self.showRatingForm = false;
-                // Reload profile data
-                self.viewProfile(self.selectedProfile);
+
+                // Reload profile data without changing the active tab
+                self.get("GetServiceProviderProfile", { userId: self.selectedProfile.UserId }).done(function (response) {
+                    self.profileData = response;
+                }).fail(function (xhr, status, error) {
+                    console.error("Error reloading profile:", xhr.responseText);
+                });
+
                 // Also reload main data to update average rating
                 self.loadData();
             }).fail(function (xhr, status, error) {
@@ -1328,14 +1999,51 @@ FinHubAddOns.ServiceProviderComponent = {
                 toastr.success("Task assigned successfully");
                 self.resetTaskForm();
                 self.showTaskForm = false;
-                // Reload profile data
-                self.viewProfile(self.selectedProfile);
+
+                // Reload profile data without changing the active tab
+                self.get("GetServiceProviderProfile", { userId: self.selectedProfile.UserId }).done(function (response) {
+                    self.profileData = response;
+                }).fail(function (xhr, status, error) {
+                    console.error("Error reloading profile:", xhr.responseText);
+                });
             }).fail(function (xhr, status, error) {
                 console.error("Error adding task:", xhr.responseText);
                 toastr.error("Error adding task");
             }).always(function () {
                 self.isLoading = false;
             });
+        },
+
+        // Simpler HTML truncation method
+        truncateHtml: function (html, maxLength) {
+            if (!html) return '';
+
+            // Strip HTML tags to get text length
+            var textOnly = html.replace(/<[^>]*>/g, '');
+
+            if (textOnly.length <= maxLength) {
+                return html;
+            }
+
+            // Simple approach: truncate the text and add ellipsis
+            // This preserves basic HTML structure for most cases
+            var truncatedText = textOnly.substring(0, maxLength) + '...';
+
+            // If original has HTML tags, try to preserve basic formatting
+            if (html !== textOnly) {
+                // Keep basic tags like <p>, <br>, <strong>, <em>
+                var withBasicTags = html.replace(/<(?!\/?(?:p|br|strong|b|em|i)\b)[^>]*>/gi, '');
+                var textInTags = withBasicTags.replace(/<[^>]*>/g, '');
+
+                if (textInTags.length <= maxLength) {
+                    return withBasicTags;
+                } else {
+                    // Fallback to plain text truncation
+                    return truncatedText;
+                }
+            }
+
+            return truncatedText;
         },
 
         resetTaskForm: function () {

@@ -471,7 +471,7 @@
                     </div>
                 </div>
 
-                <!-- Profile Navigation with Counts -->
+                <!-- Profile Navigation with Counts - UPDATED -->
                 <div class="profile-nav">
                     <button type="button" 
                             @click="activeProfileTab = 'overview'" 
@@ -509,11 +509,24 @@
                         <span class="nav-icon">👤</span>
                         Profile Data
                     </button>
+                    <!-- NEW TABS -->
                     <button type="button" 
-                            @click="activeProfileTab = 'actions'" 
-                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'actions' }]">
-                        <span class="nav-icon">⚡</span>
-                        Actions
+                            @click="activeProfileTab = 'edit'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'edit' }]">
+                        <span class="nav-icon">✏️</span>
+                        Edit Profile
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'payments'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'payments' }]">
+                        <span class="nav-icon">💳</span>
+                        Record Payment
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'payment-history'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'payment-history' }]">
+                        <span class="nav-icon">📜</span>
+                        Payment History ({{paymentHistory.length}})
                     </button>
                 </div>
 
@@ -525,35 +538,35 @@
                             <!-- Performance Stats -->
                             <div class="overview-section">
                                 <h3>Performance Overview</h3>
-                                <div v-if="profileData.stats" class="stats-grid">
+                                <div class="stats-grid">
                                     <div class="stat-item">
-                                        <div class="stat-value">{{profileData.stats.TotalOffers || 0}}</div>
-                                        <div class="stat-label">Total Offers</div>
+                                        <div class="stat-value">{{getTotalProjects()}}</div>
+                                        <div class="stat-label">Total Projects</div>
                                     </div>
                                     <div class="stat-item success">
-                                        <div class="stat-value">{{profileData.stats.AcceptedOffers || 0}}</div>
-                                        <div class="stat-label">Accepted</div>
+                                        <div class="stat-value">{{getAwardedProjects()}}</div>
+                                        <div class="stat-label">Awarded</div>
                                     </div>
                                     <div class="stat-item">
-                                        <div class="stat-value">{{profileData.stats.PendingOffers || 0}}</div>
+                                        <div class="stat-value">{{getPendingProjects()}}</div>
                                         <div class="stat-label">Pending</div>
                                     </div>
                                     <div class="stat-item danger">
-                                        <div class="stat-value">{{profileData.stats.RejectedOffers || 0}}</div>
+                                        <div class="stat-value">{{getRejectedProjects()}}</div>
                                         <div class="stat-label">Rejected</div>
                                     </div>
                                 </div>
-                                <div v-if="profileData.stats" class="revenue-stats">
+                                <div class="revenue-stats">
                                     <div class="revenue-item">
-                                        <div class="revenue-value">{{formatCurrency(profileData.stats.TotalRevenue || 0)}}</div>
-                                        <div class="revenue-label">Total Revenue</div>
+                                        <div class="revenue-value">{{formatCurrency(getTotalProjectValue())}}</div>
+                                        <div class="revenue-label">Total Project Value</div>
                                     </div>
                                     <div class="revenue-item">
-                                        <div class="revenue-value">{{formatCurrency(profileData.stats.AverageProjectValue || 0)}}</div>
+                                        <div class="revenue-value">{{formatCurrency(getAverageProjectValue())}}</div>
                                         <div class="revenue-label">Avg Project Value</div>
                                     </div>
                                     <div class="revenue-item">
-                                        <div class="revenue-value">{{(profileData.stats.SuccessRate || 0).toFixed(1)}}%</div>
+                                        <div class="revenue-value">{{getSuccessRate()}}%</div>
                                         <div class="revenue-label">Success Rate</div>
                                     </div>
                                 </div>
@@ -793,7 +806,7 @@
                         </div>
                     </div>
 
-                    <!-- Projects Tab -->
+                    <!-- Projects Tab - UPDATED LAYOUT -->
                     <div v-if="activeProfileTab === 'projects'" class="profile-tab-panel">
                         <div v-if="profileData.projects.length === 0" class="empty-state">
                             <div class="empty-icon">💼</div>
@@ -801,39 +814,90 @@
                             <p>This service provider hasn't bid on any projects yet.</p>
                         </div>
                         <div v-else class="projects-grid">
-                            <div v-for="project in profileData.projects" :key="project.ProjectID" 
-                                 :class="['project-card', project.OfferStatus === 'Accepted' ? 'project-won' : 'project-bid']">
+                            <div v-for="project in profileData.projects" 
+                                 :key="project.ProjectID" 
+                                 :class="['project-card', { 'project-won': isProjectWon(project) }]">
+            
+                                <!-- Project Header -->
                                 <div class="project-header">
-                                    <h5>{{project.Title}}</h5>
+                                    <div class="project-title-section">
+                                        <a :href="'/projects/' + project.ProjectID" 
+                                           target="_blank" 
+                                           class="project-title-link">
+                                            <h5>{{project.Title}}</h5>
+                                        </a>
+                                        <div class="project-id">ID: {{project.ProjectID}}</div>
+                                    </div>
                                     <span v-if="project.OfferStatus" 
-                                          :class="['offer-status-badge', 'status-' + project.OfferStatus.toLowerCase()]">
+                                          :class="['project-status-badge', 'status-' + project.OfferStatus.toLowerCase()]">
                                         {{project.OfferStatus}}
                                     </span>
                                 </div>
-                                <p v-if="project.Description" class="project-description">{{project.Description}}</p>
-                                <div class="project-financial">
-                                    <div class="financial-item" v-if="project.Budget">
-                                        <label>Budget:</label>
-                                        <span class="amount">{{project.BudgetCur || 'EUR'}} {{project.Budget}}</span>
+
+                                <!-- Project Description -->
+                                <div v-if="project.Description" class="project-description">
+                                    <label>Description:</label>
+                                    <div class="project-description-content" 
+                                         v-html="truncateHtml(project.Description, 150)"
+                                         :title="project.Description">
                                     </div>
-                                    <div class="financial-item" v-if="project.OfferPrice">
-                                        <label>Offered:</label>
-                                        <span class="amount offer-amount">{{project.OfferCurrency || 'EUR'}} {{project.OfferPrice}}</span>
+                                    <button v-if="project.Description.length > 150" 
+                                            type="button" 
+                                            @click="toggleProjectDescription(project.ProjectID)"
+                                            class="show-more-btn">
+                                        {{expandedProjects[project.ProjectID] ? 'Show Less' : 'Show More'}}
+                                    </button>
+                                    <div v-if="expandedProjects[project.ProjectID]" 
+                                         class="project-description-full" 
+                                         v-html="project.Description">
                                     </div>
                                 </div>
-                                <div class="project-dates">
-                                    <div class="date-item">
+
+                                <!-- Project Financial Info -->
+                                <div class="project-financial-grid">
+                                    <div v-if="project.Budget" class="financial-info-item">
+                                        <label>Project Budget:</label>
+                                        <span class="amount-display budget-amount">
+                                            {{project.BudgetCur || 'EUR'}} {{formatNumber(project.Budget)}}
+                                        </span>
+                                    </div>
+                                    <div v-if="project.OfferPrice" class="financial-info-item">
+                                        <label>Our Offer:</label>
+                                        <span class="amount-display offer-amount">
+                                            {{project.OfferCurrency || 'EUR'}} {{formatNumber(project.OfferPrice)}}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Project Timeline -->
+                                <div class="project-timeline-grid">
+                                    <div class="timeline-info-item">
                                         <label>Project Created:</label>
                                         <span>{{formatDate(project.DateCreated)}}</span>
                                     </div>
-                                    <div class="date-item" v-if="project.DateOffered">
+                                    <div v-if="project.DateOffered" class="timeline-info-item">
                                         <label>Offer Submitted:</label>
                                         <span>{{formatDate(project.DateOffered)}}</span>
                                     </div>
                                 </div>
-                                <div v-if="project.OfferMessage" class="project-message">
+
+                                <!-- Offer Message -->
+                                <div v-if="project.OfferMessage" class="project-offer-message">
                                     <label>Offer Message:</label>
-                                    <p>{{project.OfferMessage}}</p>
+                                    <div class="offer-message-content">{{project.OfferMessage}}</div>
+                                </div>
+
+                                <!-- Project Footer with Status -->
+                                <div class="project-footer">
+                                    <div class="project-status-info">
+                                        <span class="status-label">Status:</span>
+                                        <span :class="['status-text', 'status-text-' + project.OfferStatus.toLowerCase()]">
+                                            {{project.OfferStatus}}
+                                        </span>
+                                    </div>
+                                    <div v-if="isProjectWon(project)" class="project-won-indicator">
+                                        <span class="won-badge">🏆 Won</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1050,28 +1114,274 @@
                         </div>
                     </div>
 
-                    <!-- Actions Tab -->
-                    <div v-if="activeProfileTab === 'actions'" class="profile-tab-panel">
-                        <div class="actions-grid">
-                            <div class="action-card" @click="editUser(selectedProfile)">
-                                <div class="action-icon-large">✏️</div>
-                                <h4>Edit Profile</h4>
-                                <p>Update user information, contact details, and account settings</p>
+                    <!-- NEW: Edit Profile Tab -->
+                    <div v-if="activeProfileTab === 'edit'" class="profile-tab-panel">
+                        <div class="form-section">
+                            <h4>Edit User Profile</h4>
+                            
+                            <!-- Account Information -->
+                            <h5>Account Information</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" :value="selectedProfile.Username" class="form-control" disabled>
+                                </div>
+                                <div class="form-group">
+                                    <label>User ID</label>
+                                    <input type="text" :value="selectedProfile.UserId" class="form-control" disabled>
+                                </div>
                             </div>
-                            <div class="action-card" @click="insertPayment(selectedProfile)">
-                                <div class="action-icon-large">💳</div>
-                                <h4>Record Payment</h4>
-                                <p>Add a new payment record and extend subscription period</p>
+
+                            <!-- Basic Information -->
+                            <h5>Basic Information</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>First Name</label>
+                                    <input type="text" v-model="editForm.firstName" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Last Name</label>
+                                    <input type="text" v-model="editForm.lastName" class="form-control">
+                                </div>
                             </div>
-                            <div class="action-card" @click="viewPaymentHistory(selectedProfile)">
-                                <div class="action-icon-large">📜</div>
-                                <h4>Payment History</h4>
-                                <p>View all payment records and transaction history</p>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Display Name</label>
+                                    <input type="text" v-model="editForm.displayName" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email <span class="sub-text">(Read-only)</span></label>
+                                    <input type="email" v-model="editForm.email" class="form-control" readonly>
+                                </div>
                             </div>
-                            <div class="action-card" @click="confirmRemoveUser(selectedProfile)">
-                                <div class="action-icon-large danger">🗑️</div>
-                                <h4>Remove from Role</h4>
-                                <p>Remove Service Provider role from this user account</p>
+
+                            <!-- Contact Information -->
+                            <h5>Contact Information</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Phone</label>
+                                    <input type="tel" v-model="editForm.phone" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mobile</label>
+                                    <input type="tel" v-model="editForm.mobile" class="form-control">
+                                </div>
+                            </div>
+
+                            <!-- Address Information -->
+                            <h5>Address Information</h5>
+                            <div class="form-group full-width">
+                                <label>Street Address</label>
+                                <input type="text" v-model="editForm.street" class="form-control">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>City</label>
+                                    <input type="text" v-model="editForm.city" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>State/Region</label>
+                                    <input type="text" v-model="editForm.stateRegion" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Postal Code</label>
+                                    <input type="text" v-model="editForm.postalCode" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Country</label>
+                                    <input type="text" v-model="editForm.country" class="form-control">
+                                </div>
+                            </div>
+
+                            <!-- Role Information -->
+                            <h5>Role Information</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Role Start Date</label>
+                                    <input type="text" :value="formatDate(selectedProfile.RoleStartDate)" class="form-control" disabled>
+                                </div>
+                                <div class="form-group">
+                                    <label>Role Expiration Date</label>
+                                    <input type="date" v-model="editForm.roleExpirationDate" class="form-control">
+                                </div>
+                            </div>
+
+                            <!-- Account Status -->
+                            <h5>Account Status</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" v-model="editForm.isAuthorized" class="form-checkbox">
+                                        <span>User is Authorized</span>
+                                    </label>
+                                    <div class="form-help">Unauthorized users cannot access the portal</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="checkbox-label danger">
+                                        <input type="checkbox" v-model="editForm.isDeleted" class="form-checkbox">
+                                        <span>Soft Delete User</span>
+                                    </label>
+                                    <div class="form-help danger">User will be marked as deleted but data retained</div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" @click="saveUserEditFromTab" :disabled="isLoading" class="btn-modern btn-primary">
+                                    <span v-if="isLoading">Saving...</span>
+                                    <span v-else>Save Changes</span>
+                                </button>
+                                <button type="button" @click="closeProfile" :disabled="isLoading" class="btn-modern btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Record Payment Tab -->
+                    <div v-if="activeProfileTab === 'payments'" class="profile-tab-panel">
+                        <div class="form-section">
+                            <h4>Record Payment for {{selectedProfile.DisplayName}}</h4>
+                            
+                            <!-- Subscription Plans -->
+                            <h5>Select Subscription Plan</h5>
+                            <div class="plan-grid">
+                                <div v-for="plan in subscriptionPlans" :key="plan.PlanID" 
+                                     @click="selectPlan(plan)"
+                                     :class="['plan-card', { 'selected': paymentForm.planId === plan.PlanID }]">
+                                    <div class="plan-name">{{plan.PlanName}}</div>
+                                    <div class="plan-amount">€{{plan.Amount}}</div>
+                                    <div class="plan-duration">{{plan.DurationMonths}} months</div>
+                                    <div v-if="plan.Description" class="plan-description">{{plan.Description}}</div>
+                                </div>
+                            </div>
+
+                            <!-- Payment Details -->
+                            <h5>Payment Details</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Payment Date</label>
+                                    <input type="date" v-model="paymentForm.paymentDate" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Payment Method</label>
+                                    <select v-model="paymentForm.paymentMethod" class="form-control">
+                                        <option value="BankTransfer">Bank Transfer</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Online">Online</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Reference Number <span class="required">*</span></label>
+                                    <input type="text" v-model="paymentForm.referenceNumber" class="form-control" 
+                                           placeholder="Transaction ID or receipt number">
+                                </div>
+                                <div class="form-group">
+                                    <label>Plan Amount (€)</label>
+                                    <input type="number" v-model="paymentForm.amount" class="form-control" 
+                                           :disabled="paymentForm.planId !== null" step="0.01" readonly>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Discount (€)</label>
+                                    <input type="number" v-model="paymentForm.discountAmount" 
+                                           @input="calculateAmountPaid" class="form-control" 
+                                           step="0.01" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount Paid (€)</label>
+                                    <input type="number" v-model="paymentForm.amountPaid" class="form-control" 
+                                           step="0.01" readonly style="font-weight: bold; background-color: #f0f8ff;">
+                                </div>
+                            </div>
+
+                            <!-- Subscription Period -->
+                            <h5>Subscription Period</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Start Date</label>
+                                    <input type="date" v-model="paymentForm.subscriptionStartDate" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>End Date</label>
+                                    <input type="date" v-model="paymentForm.subscriptionEndDate" class="form-control" :disabled="!paymentForm.planId">
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Notes</label>
+                                <textarea v-model="paymentForm.notes" class="form-control" rows="3" 
+                                          placeholder="Additional notes about this payment"></textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" @click="savePaymentFromTab" :disabled="isLoading" class="btn-modern btn-primary">
+                                    <span v-if="isLoading">Recording...</span>
+                                    <span v-else>Record Payment</span>
+                                </button>
+                                <button type="button" @click="closeProfile" :disabled="isLoading" class="btn-modern btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Payment History Tab -->
+                    <div v-if="activeProfileTab === 'payment-history'" class="profile-tab-panel">
+                        <div class="tab-actions">
+                            <button type="button" @click="loadPaymentHistoryForTab" class="btn-modern btn-primary">
+                                <span class="action-icon">🔄</span> Refresh History
+                            </button>
+                        </div>
+
+                        <div v-if="paymentHistory.length === 0" class="empty-state">
+                            <div class="empty-icon">📜</div>
+                            <h4>No Payment History</h4>
+                            <p>No payments have been recorded for this user yet.</p>
+                        </div>
+                        
+                        <div v-else class="payment-history-section">
+                            <div class="payment-history-table">
+                                <table class="history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Plan</th>
+                                            <th>Amount</th>
+                                            <th>Discount</th>
+                                            <th>Paid</th>
+                                            <th>Period</th>
+                                            <th>Method</th>
+                                            <th>Ref</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="payment in paymentHistory" :key="payment.PaymentID">
+                                            <td>{{formatDate(payment.PaymentDate)}}</td>
+                                            <td>{{payment.PlanName || '-'}}</td>
+                                            <td>{{formatCurrency(payment.Amount)}}</td>
+                                            <td>{{formatCurrency(payment.DiscountAmount || 0)}}</td>
+                                            <td style="font-weight: bold;">{{formatCurrency(payment.Amount - (payment.DiscountAmount || 0))}}</td>
+                                            <td>
+                                                <div v-if="payment.SubscriptionStartDate && payment.SubscriptionEndDate">
+                                                    {{formatDate(payment.SubscriptionStartDate)}} - {{formatDate(payment.SubscriptionEndDate)}}
+                                                </div>
+                                                <span v-else>-</span>
+                                            </td>
+                                            <td>{{payment.PaymentMethod || '-'}}</td>
+                                            <td>{{payment.ReferenceNumber || '-'}}</td>
+                                            <td>
+                                                <span :class="['payment-status', getPaymentStatusClass(payment.Status)]">
+                                                    {{payment.Status}}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
