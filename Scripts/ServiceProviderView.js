@@ -117,6 +117,7 @@ FinHubAddOns.ServiceProviderComponent = {
             // Service Provider Profile
             showProfilePanel: false,
             selectedProfile: null,
+            activeProfileTab: 'overview',
             profileData: {
                 stats: null,
                 actions: [],
@@ -431,6 +432,16 @@ FinHubAddOns.ServiceProviderComponent = {
                 stars += i <= rating ? '★' : '☆';
             }
             return stars;
+        },
+
+        // Get user initials for avatar
+        getInitials: function (displayName) {
+            if (!displayName) return '??';
+            var names = displayName.split(' ');
+            if (names.length >= 2) {
+                return names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
+            }
+            return displayName.charAt(0).toUpperCase() + (displayName.charAt(1) || '').toUpperCase();
         },
 
         // NEW: Check if user has payment history (for distinguishing Never Paid vs Unpaid)
@@ -1146,6 +1157,7 @@ FinHubAddOns.ServiceProviderComponent = {
             var self = this;
             self.selectedProfile = user;
             self.showProfilePanel = true;
+            self.activeProfileTab = 'overview';
             self.isLoading = true;
 
             // Reset forms
@@ -1166,6 +1178,7 @@ FinHubAddOns.ServiceProviderComponent = {
         closeProfile: function () {
             this.showProfilePanel = false;
             this.selectedProfile = null;
+            this.activeProfileTab = 'overview';
             this.profileData = {
                 stats: null,
                 actions: [],

@@ -429,377 +429,649 @@
             </select>
         </div>
 
-        <!-- Enhanced Service Provider Profile Panel -->
+        <!-- Enhanced Service Provider Profile Panel - COMPLETELY REDESIGNED -->
         <div v-if="showProfilePanel" class="profile-panel-backdrop" @click="closeProfile">
-            <div class="profile-panel" :class="{ 'profile-panel-open': showProfilePanel }" @click.stop>
-                <div class="profile-header">
-                    <div class="profile-header-content">
-                        <h2>{{selectedProfile.DisplayName}}</h2>
-                        <div class="profile-subtitle">{{selectedProfile.Email}}</div>
-                        <div class="profile-contact">
-                            <span v-if="selectedProfile.Phone">📞 {{selectedProfile.Phone}}</span>
-                            <span v-if="selectedProfile.Mobile">📱 {{selectedProfile.Mobile}}</span>
+            <div class="profile-panel-wide" @click.stop>
+                <!-- Profile Header with User Info -->
+                <div class="profile-header-wide">
+                    <div class="profile-header-left">
+                        <div class="profile-avatar">
+                            <span class="avatar-initials">{{getInitials(selectedProfile.DisplayName)}}</span>
                         </div>
-                    </div>
-                    <button type="button" class="profile-close" @click="closeProfile">×</button>
-                </div>
-                
-                <div class="profile-body">
-                    <!-- Enhanced Profile Stats Grid -->
-                    <div v-if="profileData.stats" class="profile-stats-enhanced">
-                        <div class="profile-stat-card stat-offers">
-                            <div class="profile-stat-value">{{profileData.stats.TotalOffers}}</div>
-                            <div class="profile-stat-label">Total Offers Submitted</div>
-                        </div>
-                        <div class="profile-stat-card stat-won">
-                            <div class="profile-stat-value">{{profileData.stats.ProjectsWon || 0}}</div>
-                            <div class="profile-stat-label">Projects Won</div>
-                        </div>
-                        <div class="profile-stat-card stat-revenue">
-                            <div class="profile-stat-value">{{formatCurrency(profileData.stats.TotalRevenue)}}</div>
-                            <div class="profile-stat-label">Total Revenue</div>
-                        </div>
-                        <div class="profile-stat-card stat-success">
-                            <div class="profile-stat-value">{{profileData.stats.WinRate || 0}}%</div>
-                            <div class="profile-stat-label">Win Rate</div>
-                        </div>
-                        <div class="profile-stat-card stat-pending">
-                            <div class="profile-stat-value">{{profileData.stats.PendingOffers || 0}}</div>
-                            <div class="profile-stat-label">Pending Offers</div>
-                        </div>
-                        <div class="profile-stat-card stat-rejected">
-                            <div class="profile-stat-value">{{profileData.stats.RejectedOffers || 0}}</div>
-                            <div class="profile-stat-label">Rejected Offers</div>
-                        </div>
-                        <div class="profile-stat-card stat-avg-value">
-                            <div class="profile-stat-value">{{formatCurrency(profileData.stats.AverageProjectValue)}}</div>
-                            <div class="profile-stat-label">Avg Project Value</div>
-                        </div>
-                        <div class="profile-stat-card stat-rating">
-                            <div class="profile-stat-value">{{profileData.stats.AverageRating.toFixed(1)}}</div>
-                            <div class="profile-stat-label">Average Rating</div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions Section -->
-                    <div class="profile-quick-actions">
-                        <h3>Quick Actions</h3>
-                        <div class="profile-action-grid">
-                            <button type="button" @click="editUser(selectedProfile)" class="profile-action-btn edit-btn">
-                                <span class="action-icon">✏️</span>
-                                <span>Edit Profile</span>
-                            </button>
-                            <button type="button" @click="insertPayment(selectedProfile)" class="profile-action-btn payment-btn">
-                                <span class="action-icon">💳</span>
-                                <span>Record Payment</span>
-                            </button>
-                            <button type="button" @click="viewPaymentHistory(selectedProfile)" class="profile-action-btn history-btn">
-                                <span class="action-icon">📜</span>
-                                <span>Payment History</span>
-                            </button>
-                            <button type="button" @click="toggleActionForm" class="profile-action-btn note-btn">
-                                <span class="action-icon">📝</span>
-                                <span>Add Note</span>
-                            </button>
-                            <button type="button" @click="toggleRatingForm" class="profile-action-btn rating-btn">
-                                <span class="action-icon">⭐</span>
-                                <span>Add Rating</span>
-                            </button>
-                            <button type="button" @click="toggleTaskForm" class="profile-action-btn task-btn">
-                                <span class="action-icon">📋</span>
-                                <span>Assign Task</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Account Status Information -->
-                    <div class="profile-account-status">
-                        <h3>Account Status</h3>
-                        <div class="status-info-grid">
-                            <div class="status-info-item">
-                                <label>Current Status:</label>
-                                <span :class="['status-badge', getStatusClass(selectedProfile)]">
+                        <div class="profile-basic-info">
+                            <h1>{{selectedProfile.DisplayName}}</h1>
+                            <div class="profile-subtitle">{{selectedProfile.Email}}</div>
+                            <div class="profile-contact-quick">
+                                <span v-if="selectedProfile.Phone" class="contact-item">📞 {{selectedProfile.Phone}}</span>
+                                <span v-if="selectedProfile.Mobile" class="contact-item">📱 {{selectedProfile.Mobile}}</span>
+                            </div>
+                            <div class="profile-status-badge">
+                                <span :class="['status-badge-large', getStatusClass(selectedProfile)]">
                                     {{getStatus(selectedProfile)}}
                                 </span>
                             </div>
-                            <div class="status-info-item">
-                                <label>Role Start Date:</label>
-                                <span>{{formatDate(selectedProfile.RoleStartDate)}}</span>
+                        </div>
+                    </div>
+                    <div class="profile-header-right">
+                        <div class="profile-quick-stats">
+                            <div class="quick-stat">
+                                <div class="quick-stat-number">{{selectedProfile.DaysInRole || 0}}</div>
+                                <div class="quick-stat-label">Days Active</div>
                             </div>
-                            <div class="status-info-item">
-                                <label>Role Expiration:</label>
-                                <span :class="getSubscriptionClass(selectedProfile)">
-                                    {{formatExpiration(selectedProfile.RoleExpirationDate)}}
-                                </span>
+                            <div class="quick-stat" v-if="selectedProfile.AverageRating > 0">
+                                <div class="quick-stat-number">{{selectedProfile.AverageRating.toFixed(1)}}</div>
+                                <div class="quick-stat-label">Rating</div>
                             </div>
-                            <div class="status-info-item" v-if="selectedProfile.CurrentPlan">
-                                <label>Current Plan:</label>
-                                <span>{{selectedProfile.CurrentPlan}}</span>
+                            <div class="quick-stat">
+                                <div class="quick-stat-number">{{formatDate(selectedProfile.RoleStartDate)}}</div>
+                                <div class="quick-stat-label">Joined</div>
                             </div>
-                            <div class="status-info-item" v-if="selectedProfile.SubscriptionEndDate">
-                                <label>Subscription End:</label>
-                                <span>{{formatDate(selectedProfile.SubscriptionEndDate)}}</span>
+                        </div>
+                        <button type="button" class="profile-close-wide" @click="closeProfile">×</button>
+                    </div>
+                </div>
+
+                <!-- Profile Navigation with Counts -->
+                <div class="profile-nav">
+                    <button type="button" 
+                            @click="activeProfileTab = 'overview'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'overview' }]">
+                        <span class="nav-icon">📊</span>
+                        Overview
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'timeline'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'timeline' }]">
+                        <span class="nav-icon">📝</span>
+                        Timeline ({{profileData.actions.length}})
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'tasks'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'tasks' }]">
+                        <span class="nav-icon">📋</span>
+                        Tasks ({{profileData.tasks.length}})
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'projects'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'projects' }]">
+                        <span class="nav-icon">💼</span>
+                        Projects ({{profileData.projects.length}})
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'ratings'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'ratings' }]">
+                        <span class="nav-icon">⭐</span>
+                        Ratings ({{profileData.ratings.length}})
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'profile'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'profile' }]">
+                        <span class="nav-icon">👤</span>
+                        Profile Data
+                    </button>
+                    <button type="button" 
+                            @click="activeProfileTab = 'actions'" 
+                            :class="['profile-nav-btn', { 'active': activeProfileTab === 'actions' }]">
+                        <span class="nav-icon">⚡</span>
+                        Actions
+                    </button>
+                </div>
+
+                <!-- Profile Content Area -->
+                <div class="profile-content-wide">
+                    <!-- Overview Tab -->
+                    <div v-if="activeProfileTab === 'overview'" class="profile-tab-panel">
+                        <div class="overview-grid">
+                            <!-- Performance Stats -->
+                            <div class="overview-section">
+                                <h3>Performance Overview</h3>
+                                <div v-if="profileData.stats" class="stats-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-value">{{profileData.stats.TotalOffers || 0}}</div>
+                                        <div class="stat-label">Total Offers</div>
+                                    </div>
+                                    <div class="stat-item success">
+                                        <div class="stat-value">{{profileData.stats.AcceptedOffers || 0}}</div>
+                                        <div class="stat-label">Accepted</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value">{{profileData.stats.PendingOffers || 0}}</div>
+                                        <div class="stat-label">Pending</div>
+                                    </div>
+                                    <div class="stat-item danger">
+                                        <div class="stat-value">{{profileData.stats.RejectedOffers || 0}}</div>
+                                        <div class="stat-label">Rejected</div>
+                                    </div>
+                                </div>
+                                <div v-if="profileData.stats" class="revenue-stats">
+                                    <div class="revenue-item">
+                                        <div class="revenue-value">{{formatCurrency(profileData.stats.TotalRevenue || 0)}}</div>
+                                        <div class="revenue-label">Total Revenue</div>
+                                    </div>
+                                    <div class="revenue-item">
+                                        <div class="revenue-value">{{formatCurrency(profileData.stats.AverageProjectValue || 0)}}</div>
+                                        <div class="revenue-label">Avg Project Value</div>
+                                    </div>
+                                    <div class="revenue-item">
+                                        <div class="revenue-value">{{(profileData.stats.SuccessRate || 0).toFixed(1)}}%</div>
+                                        <div class="revenue-label">Success Rate</div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="status-info-item">
-                                <label>Authorization Status:</label>
-                                <span :class="selectedProfile.IsAuthorized ? 'status-authorized' : 'status-unauthorized'">
-                                    {{selectedProfile.IsAuthorized ? 'Authorized' : 'Unauthorized'}}
-                                </span>
+
+                            <!-- Account Information -->
+                            <div class="overview-section">
+                                <h3>Account Status</h3>
+                                <div class="account-details">
+                                    <div class="detail-row">
+                                        <label>Current Status:</label>
+                                        <span :class="['status-badge', getStatusClass(selectedProfile)]">
+                                            {{getStatus(selectedProfile)}}
+                                        </span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <label>Role Start:</label>
+                                        <span>{{formatDate(selectedProfile.RoleStartDate)}}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <label>Role Expiration:</label>
+                                        <span :class="getSubscriptionClass(selectedProfile)">
+                                            {{formatExpiration(selectedProfile.RoleExpirationDate)}}
+                                        </span>
+                                    </div>
+                                    <div class="detail-row" v-if="selectedProfile.CurrentPlan">
+                                        <label>Current Plan:</label>
+                                        <span>{{selectedProfile.CurrentPlan}}</span>
+                                    </div>
+                                    <div class="detail-row" v-if="selectedProfile.SubscriptionEndDate">
+                                        <label>Subscription End:</label>
+                                        <span>{{formatDate(selectedProfile.SubscriptionEndDate)}}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <label>Authorization:</label>
+                                        <span :class="selectedProfile.IsAuthorized ? 'status-authorized' : 'status-unauthorized'">
+                                            {{selectedProfile.IsAuthorized ? 'Authorized' : 'Unauthorized'}}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Activity -->
+                            <div class="overview-section recent-activity">
+                                <h3>Recent Activity</h3>
+                                <div v-if="profileData.actions.length === 0" class="no-activity">
+                                    No recent activity
+                                </div>
+                                <div v-else class="activity-list">
+                                    <div v-for="action in profileData.actions.slice(0, 5)" :key="action.ActionID" class="activity-item">
+                                        <div class="activity-icon">{{getActionIcon(action.ActionType)}}</div>
+                                        <div class="activity-content">
+                                            <div class="activity-title">{{action.ActionTitle}}</div>
+                                            <div class="activity-meta">{{formatDate(action.ActionDate)}} • {{action.CreatedByName}}</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Address Information -->
-                    <div class="profile-address-info" v-if="selectedProfile.Street || selectedProfile.City || selectedProfile.Country">
-                        <h3>Address Information</h3>
-                        <div class="address-display">
-                            <div v-if="selectedProfile.Street">{{selectedProfile.Street}}</div>
-                            <div v-if="selectedProfile.City || selectedProfile.StateRegion">
-                                {{selectedProfile.City}}<span v-if="selectedProfile.City && selectedProfile.StateRegion">, </span>{{selectedProfile.StateRegion}}
-                            </div>
-                            <div v-if="selectedProfile.PostalCode">{{selectedProfile.PostalCode}}</div>
-                            <div v-if="selectedProfile.Country">{{selectedProfile.Country}}</div>
+                    <!-- Timeline Tab -->
+                    <div v-if="activeProfileTab === 'timeline'" class="profile-tab-panel">
+                        <div class="tab-actions">
+                            <button type="button" @click="toggleActionForm" class="btn-modern btn-primary">
+                                <span class="action-icon">📝</span> Add Note/Action
+                            </button>
                         </div>
-                    </div>
 
-                    <!-- Action Form -->
-                    <div v-if="showActionForm" class="profile-form-section">
-                        <h4>Add Note/Action</h4>
-                        <div class="form-group">
-                            <label>Action Type</label>
-                            <select v-model="actionForm.actionType" class="form-control">
-                                <option value="Note">Note</option>
-                                <option value="Call">Call</option>
-                                <option value="Email">Email</option>
-                                <option value="Meeting">Meeting</option>
-                                <option value="Task">Task</option>
-                                <option value="StatusChange">Status Change</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Title <span class="required">*</span></label>
-                            <input type="text" v-model="actionForm.actionTitle" class="form-control" placeholder="Brief title for this action">
-                        </div>
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea v-model="actionForm.actionDescription" class="form-control" rows="3" placeholder="Detailed description"></textarea>
-                        </div>
-                        <div class="form-row">
+                        <!-- Action Form -->
+                        <div v-if="showActionForm" class="form-section">
+                            <h4>Add Note/Action</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Action Type</label>
+                                    <select v-model="actionForm.actionType" class="form-control">
+                                        <option value="Note">Note</option>
+                                        <option value="Call">Call</option>
+                                        <option value="Email">Email</option>
+                                        <option value="Meeting">Meeting</option>
+                                        <option value="Task">Task</option>
+                                        <option value="StatusChange">Status Change</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Priority</label>
+                                    <select v-model="actionForm.priority" class="form-control">
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Urgent">Urgent</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Date</label>
+                                    <input type="date" v-model="actionForm.actionDate" class="form-control">
+                                </div>
+                            </div>
                             <div class="form-group">
-                                <label>Date</label>
-                                <input type="date" v-model="actionForm.actionDate" class="form-control">
+                                <label>Title <span class="required">*</span></label>
+                                <input type="text" v-model="actionForm.actionTitle" class="form-control" placeholder="Brief title for this action">
                             </div>
                             <div class="form-group">
-                                <label>Priority</label>
-                                <select v-model="actionForm.priority" class="form-control">
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                    <option value="Urgent">Urgent</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" v-model="actionForm.isPrivate" class="form-checkbox">
-                                <span>Private (only visible to me)</span>
-                            </label>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" @click="saveAction" class="btn-modern btn-primary">Save Action</button>
-                            <button type="button" @click="toggleActionForm" class="btn-modern btn-secondary">Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- Rating Form -->
-                    <div v-if="showRatingForm" class="profile-form-section">
-                        <h4>Add Rating</h4>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select v-model="ratingForm.ratingCategory" class="form-control">
-                                <option value="Overall">Overall</option>
-                                <option value="Communication">Communication</option>
-                                <option value="Quality">Quality</option>
-                                <option value="Reliability">Reliability</option>
-                                <option value="Professionalism">Professionalism</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Rating</label>
-                            <div class="rating-selector">
-                                <span v-for="n in 5" :key="n" 
-                                      @click="ratingForm.rating = n" 
-                                      :class="['rating-star', { 'active': n <= ratingForm.rating }]">
-                                    {{n <= ratingForm.rating ? '★' : '☆'}}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Comments</label>
-                            <textarea v-model="ratingForm.comments" class="form-control" rows="3" placeholder="Additional comments about this rating"></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" @click="saveRating" class="btn-modern btn-primary">Save Rating</button>
-                            <button type="button" @click="toggleRatingForm" class="btn-modern btn-secondary">Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- Task Form -->
-                    <div v-if="showTaskForm" class="profile-form-section">
-                        <h4>Assign Task</h4>
-                        <div class="form-group">
-                            <label>Task Title <span class="required">*</span></label>
-                            <input type="text" v-model="taskForm.taskTitle" class="form-control" placeholder="What needs to be done?">
-                        </div>
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea v-model="taskForm.taskDescription" class="form-control" rows="3" placeholder="Task details and instructions"></textarea>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Assign To <span class="required">*</span></label>
-                                <select v-model="taskForm.assignedToUserId" class="form-control">
-                                    <option :value="null">Select Manager</option>
-                                    <option v-for="manager in managers" :key="manager.userId" :value="manager.userId">
-                                        {{manager.displayName}}
-                                    </option>
-                                </select>
+                                <label>Description</label>
+                                <textarea v-model="actionForm.actionDescription" class="form-control" rows="3" placeholder="Detailed description"></textarea>
                             </div>
                             <div class="form-group">
-                                <label>Due Date</label>
-                                <input type="date" v-model="taskForm.dueDate" class="form-control">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" v-model="actionForm.isPrivate" class="form-checkbox">
+                                    <span>Private (only visible to me)</span>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" @click="saveAction" class="btn-modern btn-primary">Save Action</button>
+                                <button type="button" @click="toggleActionForm" class="btn-modern btn-secondary">Cancel</button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Priority</label>
-                            <select v-model="taskForm.priority" class="form-control">
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium</option>
-                                <option value="High">High</option>
-                                <option value="Urgent">Urgent</option>
-                            </select>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" @click="saveTask" class="btn-modern btn-primary">Assign Task</button>
-                            <button type="button" @click="toggleTaskForm" class="btn-modern btn-secondary">Cancel</button>
-                        </div>
-                    </div>
 
-                    <!-- Timeline Tabs -->
-                    <div class="profile-tabs">
-                        <div class="profile-tab-nav">
-                            <button type="button" class="profile-tab-btn active" data-tab="timeline">Timeline</button>
-                            <button type="button" class="profile-tab-btn" data-tab="tasks">Tasks</button>
-                            <button type="button" class="profile-tab-btn" data-tab="projects">Projects</button>
-                            <button type="button" class="profile-tab-btn" data-tab="ratings">Ratings</button>
+                        <!-- Timeline -->
+                        <div v-if="profileData.actions.length === 0" class="empty-state">
+                            <div class="empty-icon">📝</div>
+                            <h4>No Actions Yet</h4>
+                            <p>Start tracking interactions with this service provider by adding your first note or action.</p>
                         </div>
-
-                        <!-- Timeline Tab -->
-                        <div class="profile-tab-content active" id="timeline-tab">
-                            <div v-if="profileData.actions.length === 0" class="profile-empty-state">
-                                No actions recorded yet.
-                            </div>
-                            <div v-else class="timeline">
-                                <div v-for="action in profileData.actions" :key="action.ActionID" class="timeline-item">
-                                    <div class="timeline-icon">{{getActionIcon(action.ActionType)}}</div>
-                                    <div class="timeline-content">
-                                        <div class="timeline-header">
-                                            <h5>{{action.ActionTitle}}</h5>
+                        <div v-else class="timeline-container">
+                            <div v-for="action in profileData.actions" :key="action.ActionID" class="timeline-item-wide">
+                                <div class="timeline-marker">{{getActionIcon(action.ActionType)}}</div>
+                                <div class="timeline-content-wide">
+                                    <div class="timeline-header-wide">
+                                        <h5>{{action.ActionTitle}}</h5>
+                                        <div class="timeline-badges">
                                             <span v-if="action.Priority" :class="['priority-badge', getPriorityClass(action.Priority)]">
                                                 {{action.Priority}}
                                             </span>
                                             <span v-if="action.IsPrivate" class="private-badge">Private</span>
                                         </div>
-                                        <p v-if="action.ActionDescription">{{action.ActionDescription}}</p>
-                                        <div class="timeline-meta">
-                                            <span>{{formatDate(action.ActionDate)}}</span>
-                                            <span>•</span>
-                                            <span>{{action.CreatedByName}}</span>
-                                        </div>
+                                    </div>
+                                    <p v-if="action.ActionDescription" class="timeline-description">{{action.ActionDescription}}</p>
+                                    <div class="timeline-meta-wide">
+                                        <span class="timeline-date">{{formatDate(action.ActionDate)}}</span>
+                                        <span class="timeline-separator">•</span>
+                                        <span class="timeline-author">{{action.CreatedByName}}</span>
+                                        <span class="timeline-separator">•</span>
+                                        <span class="timeline-type">{{action.ActionType}}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Tasks Tab -->
-                        <div class="profile-tab-content" id="tasks-tab">
-                            <div v-if="profileData.tasks.length === 0" class="profile-empty-state">
-                                No tasks assigned yet.
+                    <!-- Tasks Tab -->
+                    <div v-if="activeProfileTab === 'tasks'" class="profile-tab-panel">
+                        <div class="tab-actions">
+                            <button type="button" @click="toggleTaskForm" class="btn-modern btn-primary">
+                                <span class="action-icon">📋</span> Assign Task
+                            </button>
+                        </div>
+
+                        <!-- Task Form -->
+                        <div v-if="showTaskForm" class="form-section">
+                            <h4>Assign Task</h4>
+                            <div class="form-group">
+                                <label>Task Title <span class="required">*</span></label>
+                                <input type="text" v-model="taskForm.taskTitle" class="form-control" placeholder="What needs to be done?">
                             </div>
-                            <div v-else class="tasks-list">
-                                <div v-for="task in profileData.tasks" :key="task.TaskID" class="task-item">
-                                    <div class="task-header">
-                                        <h5>{{task.TaskTitle}}</h5>
-                                        <button type="button" 
-                                                @click="updateTaskStatus(task)"
-                                                :class="['task-status-badge', getTaskStatusClass(task.Status)]">
-                                            {{task.Status}}
-                                        </button>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea v-model="taskForm.taskDescription" class="form-control" rows="3" placeholder="Task details and instructions"></textarea>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Assign To <span class="required">*</span></label>
+                                    <select v-model="taskForm.assignedToUserId" class="form-control">
+                                        <option :value="null">Select Manager</option>
+                                        <option v-for="manager in managers" :key="manager.userId" :value="manager.userId">
+                                            {{manager.displayName}}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Due Date</label>
+                                    <input type="date" v-model="taskForm.dueDate" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Priority</label>
+                                    <select v-model="taskForm.priority" class="form-control">
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Urgent">Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" @click="saveTask" class="btn-modern btn-primary">Assign Task</button>
+                                <button type="button" @click="toggleTaskForm" class="btn-modern btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+
+                        <!-- Tasks List -->
+                        <div v-if="profileData.tasks.length === 0" class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h4>No Tasks Assigned</h4>
+                            <p>No tasks have been assigned for this service provider yet.</p>
+                        </div>
+                        <div v-else class="tasks-grid">
+                            <div v-for="task in profileData.tasks" :key="task.TaskID" class="task-card">
+                                <div class="task-header">
+                                    <h5>{{task.TaskTitle}}</h5>
+                                    <button type="button" 
+                                            @click="updateTaskStatus(task)"
+                                            :class="['task-status-badge', getTaskStatusClass(task.Status)]">
+                                        {{task.Status}}
+                                    </button>
+                                </div>
+                                <p v-if="task.TaskDescription" class="task-description">{{task.TaskDescription}}</p>
+                                <div class="task-meta-grid">
+                                    <div class="task-meta-item">
+                                        <label>Assigned to:</label>
+                                        <span>{{task.AssignedToName}}</span>
                                     </div>
-                                    <p v-if="task.TaskDescription">{{task.TaskDescription}}</p>
-                                    <div class="task-meta">
-                                        <span v-if="task.DueDate" class="task-due">
-                                            Due: {{formatDate(task.DueDate)}}
-                                        </span>
-                                        <span :class="['priority-badge', getPriorityClass(task.Priority)]">
-                                            {{task.Priority}}
-                                        </span>
-                                        <span>Assigned to: {{task.AssignedToName}}</span>
+                                    <div class="task-meta-item" v-if="task.DueDate">
+                                        <label>Due Date:</label>
+                                        <span class="task-due">{{formatDate(task.DueDate)}}</span>
+                                    </div>
+                                    <div class="task-meta-item">
+                                        <label>Priority:</label>
+                                        <span :class="['priority-badge', getPriorityClass(task.Priority)]">{{task.Priority}}</span>
+                                    </div>
+                                    <div class="task-meta-item">
+                                        <label>Created:</label>
+                                        <span>{{formatDate(task.CreatedDate)}}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Projects Tab -->
-                        <div class="profile-tab-content" id="projects-tab">
-                            <div v-if="profileData.projects.length === 0" class="profile-empty-state">
-                                No projects found.
+                    <!-- Projects Tab -->
+                    <div v-if="activeProfileTab === 'projects'" class="profile-tab-panel">
+                        <div v-if="profileData.projects.length === 0" class="empty-state">
+                            <div class="empty-icon">💼</div>
+                            <h4>No Projects</h4>
+                            <p>This service provider hasn't bid on any projects yet.</p>
+                        </div>
+                        <div v-else class="projects-grid">
+                            <div v-for="project in profileData.projects" :key="project.ProjectID" 
+                                 :class="['project-card', project.OfferStatus === 'Accepted' ? 'project-won' : 'project-bid']">
+                                <div class="project-header">
+                                    <h5>{{project.Title}}</h5>
+                                    <span v-if="project.OfferStatus" 
+                                          :class="['offer-status-badge', 'status-' + project.OfferStatus.toLowerCase()]">
+                                        {{project.OfferStatus}}
+                                    </span>
+                                </div>
+                                <p v-if="project.Description" class="project-description">{{project.Description}}</p>
+                                <div class="project-financial">
+                                    <div class="financial-item" v-if="project.Budget">
+                                        <label>Budget:</label>
+                                        <span class="amount">{{project.BudgetCur || 'EUR'}} {{project.Budget}}</span>
+                                    </div>
+                                    <div class="financial-item" v-if="project.OfferPrice">
+                                        <label>Offered:</label>
+                                        <span class="amount offer-amount">{{project.OfferCurrency || 'EUR'}} {{project.OfferPrice}}</span>
+                                    </div>
+                                </div>
+                                <div class="project-dates">
+                                    <div class="date-item">
+                                        <label>Project Created:</label>
+                                        <span>{{formatDate(project.DateCreated)}}</span>
+                                    </div>
+                                    <div class="date-item" v-if="project.DateOffered">
+                                        <label>Offer Submitted:</label>
+                                        <span>{{formatDate(project.DateOffered)}}</span>
+                                    </div>
+                                </div>
+                                <div v-if="project.OfferMessage" class="project-message">
+                                    <label>Offer Message:</label>
+                                    <p>{{project.OfferMessage}}</p>
+                                </div>
                             </div>
-                            <div v-else class="projects-list">
-                                <div v-for="project in profileData.projects" :key="project.ProjectID" 
-                                     :class="['project-item', project.OfferStatus === 'Accepted' ? 'project-won' : 'project-bid']">
-                                    <div class="project-header">
-                                        <h5>{{project.Title}}</h5>
-                                        <span v-if="project.OfferStatus" 
-                                              :class="['offer-status-badge', 'status-' + project.OfferStatus.toLowerCase()]">
-                                            {{project.OfferStatus}}
+                        </div>
+                    </div>
+
+                    <!-- Ratings Tab -->
+                    <div v-if="activeProfileTab === 'ratings'" class="profile-tab-panel">
+                        <div class="tab-actions">
+                            <button type="button" @click="toggleRatingForm" class="btn-modern btn-primary">
+                                <span class="action-icon">⭐</span> Add Rating
+                            </button>
+                        </div>
+
+                        <!-- Rating Form -->
+                        <div v-if="showRatingForm" class="form-section">
+                            <h4>Add Rating</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Category</label>
+                                    <select v-model="ratingForm.ratingCategory" class="form-control">
+                                        <option value="Overall">Overall</option>
+                                        <option value="Communication">Communication</option>
+                                        <option value="Quality">Quality</option>
+                                        <option value="Reliability">Reliability</option>
+                                        <option value="Professionalism">Professionalism</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Rating</label>
+                                    <div class="rating-selector">
+                                        <span v-for="n in 5" :key="n" 
+                                              @click="ratingForm.rating = n" 
+                                              :class="['rating-star', { 'active': n <= ratingForm.rating }]">
+                                            {{n <= ratingForm.rating ? '★' : '☆'}}
                                         </span>
                                     </div>
-                                    <p v-if="project.Description" class="project-description">{{project.Description}}</p>
-                                    <div class="project-meta">
-                                        <span v-if="project.Budget">
-                                            Budget: {{project.BudgetCur || 'EUR'}} {{project.Budget}}
-                                        </span>
-                                        <span v-if="project.OfferPrice">
-                                            Offered: {{project.OfferCurrency || 'EUR'}} {{project.OfferPrice}}
-                                        </span>
-                                        <span v-if="project.DateOffered">
-                                            Offered: {{formatDate(project.DateOffered)}}
-                                        </span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Comments</label>
+                                <textarea v-model="ratingForm.comments" class="form-control" rows="3" placeholder="Additional comments about this rating"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" @click="saveRating" class="btn-modern btn-primary">Save Rating</button>
+                                <button type="button" @click="toggleRatingForm" class="btn-modern btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+
+                        <!-- Ratings List -->
+                        <div v-if="profileData.ratings.length === 0" class="empty-state">
+                            <div class="empty-icon">⭐</div>
+                            <h4>No Ratings Yet</h4>
+                            <p>No ratings have been recorded for this service provider.</p>
+                        </div>
+                        <div v-else class="ratings-grid">
+                            <div v-for="rating in profileData.ratings" :key="rating.RatingID" class="rating-card">
+                                <div class="rating-header">
+                                    <div class="rating-category">{{rating.RatingCategory}}</div>
+                                    <div class="rating-stars-large">{{formatRatingStars(rating.Rating)}}</div>
+                                </div>
+                                <p v-if="rating.Comments" class="rating-comments">{{rating.Comments}}</p>
+                                <div class="rating-meta">
+                                    <span>{{formatDate(rating.RatedDate)}}</span>
+                                    <span class="rating-separator">•</span>
+                                    <span>Rated by {{rating.RatedByName}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Data Tab -->
+                    <div v-if="activeProfileTab === 'profile'" class="profile-tab-panel">
+                        <div class="profile-data-sections">
+                            <!-- Company Information -->
+                            <div class="profile-section">
+                                <h3>Company Information</h3>
+                                <div class="profile-info-grid">
+                                    <div class="info-item" v-if="selectedProfile.CompanyName">
+                                        <label>Company Name:</label>
+                                        <span>{{selectedProfile.CompanyName}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanyNumber">
+                                        <label>Company Number:</label>
+                                        <span>{{selectedProfile.CompanyNumber}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanyType">
+                                        <label>Company Type:</label>
+                                        <span>{{selectedProfile.CompanyType}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanySize">
+                                        <label>Company Size:</label>
+                                        <span>{{selectedProfile.CompanySize}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanyIndustry">
+                                        <label>Industry:</label>
+                                        <span>{{selectedProfile.CompanyIndustry}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanyTurnover">
+                                        <label>Annual Turnover:</label>
+                                        <span>{{selectedProfile.CompanyTurnover}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.CompanyJurisdiction">
+                                        <label>Jurisdiction:</label>
+                                        <span>{{selectedProfile.CompanyJurisdiction}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.YearOfEstablishment">
+                                        <label>Year Established:</label>
+                                        <span>{{selectedProfile.YearOfEstablishment}}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Personal Information -->
+                            <div class="profile-section">
+                                <h3>Personal Information</h3>
+                                <div class="profile-info-grid">
+                                    <div class="info-item" v-if="selectedProfile.Prefix">
+                                        <label>Prefix:</label>
+                                        <span>{{selectedProfile.Prefix}}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>First Name:</label>
+                                        <span>{{selectedProfile.FirstName}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.MiddleName">
+                                        <label>Middle Name:</label>
+                                        <span>{{selectedProfile.MiddleName}}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Last Name:</label>
+                                        <span>{{selectedProfile.LastName}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.PositionInCompany">
+                                        <label>Position:</label>
+                                        <span>{{selectedProfile.PositionInCompany}}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Contact Information -->
+                            <div class="profile-section">
+                                <h3>Contact Information</h3>
+                                <div class="profile-info-grid">
+                                    <div class="info-item">
+                                        <label>Email:</label>
+                                        <span><a :href="'mailto:' + selectedProfile.Email">{{selectedProfile.Email}}</a></span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Phone">
+                                        <label>Telephone:</label>
+                                        <span>{{selectedProfile.Phone}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Mobile">
+                                        <label>Mobile:</label>
+                                        <span>{{selectedProfile.Mobile}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Fax">
+                                        <label>Fax:</label>
+                                        <span>{{selectedProfile.Fax}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Website">
+                                        <label>Website:</label>
+                                        <span><a :href="selectedProfile.Website" target="_blank">{{selectedProfile.Website}}</a></span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Twitter">
+                                        <label>Twitter:</label>
+                                        <span>{{selectedProfile.Twitter}}</span>
+                                    </div>
+                                    <div class="info-item" v-if="selectedProfile.Skype">
+                                        <label>Skype:</label>
+                                        <span>{{selectedProfile.Skype}}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Address Information -->
+                            <div class="profile-section" v-if="selectedProfile.Street || selectedProfile.City || selectedProfile.Country">
+                                <h3>Address Information</h3>
+                                <div class="address-block">
+                                    <div v-if="selectedProfile.Street">{{selectedProfile.Street}}</div>
+                                    <div v-if="selectedProfile.City || selectedProfile.StateRegion">
+                                        {{selectedProfile.City}}<span v-if="selectedProfile.City && selectedProfile.StateRegion">, </span>{{selectedProfile.StateRegion}}
+                                    </div>
+                                    <div v-if="selectedProfile.PostalCode">{{selectedProfile.PostalCode}}</div>
+                                    <div v-if="selectedProfile.Country">{{selectedProfile.Country}}</div>
+                                </div>
+                            </div>
+
+                            <!-- Services & Business (Read-Only) -->
+                            <div class="profile-section expertise-section" v-if="selectedProfile.OurServices || selectedProfile.AboutYourServices || selectedProfile.AboutUs">
+                                <h3>Services & Expertise <span class="readonly-badge">Read Only</span></h3>
+                                <div class="expertise-content">
+                                    <div class="expertise-item" v-if="selectedProfile.OurServices">
+                                        <label>Our Services:</label>
+                                        <div class="expertise-text" v-html="selectedProfile.OurServices"></div>
+                                    </div>
+                                    <div class="expertise-item" v-if="selectedProfile.AboutYourServices">
+                                        <label>About Your Services:</label>
+                                        <div class="expertise-text" v-html="selectedProfile.AboutYourServices"></div>
+                                    </div>
+                                    <div class="expertise-item" v-if="selectedProfile.AboutUs">
+                                        <label>About Us:</label>
+                                        <div class="expertise-text" v-html="selectedProfile.AboutUs"></div>
+                                    </div>
+                                    <div class="expertise-item" v-if="selectedProfile.FeesStructure">
+                                        <label>Fees Structure:</label>
+                                        <div class="expertise-text" v-html="selectedProfile.FeesStructure"></div>
+                                    </div>
+                                    <div class="expertise-item" v-if="selectedProfile.Publications">
+                                        <label>Publications:</label>
+                                        <div class="expertise-text" v-html="selectedProfile.Publications"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Ratings Tab -->
-                        <div class="profile-tab-content" id="ratings-tab">
-                            <div v-if="profileData.ratings.length === 0" class="profile-empty-state">
-                                No ratings yet.
+                    <!-- Actions Tab -->
+                    <div v-if="activeProfileTab === 'actions'" class="profile-tab-panel">
+                        <div class="actions-grid">
+                            <div class="action-card" @click="editUser(selectedProfile)">
+                                <div class="action-icon-large">✏️</div>
+                                <h4>Edit Profile</h4>
+                                <p>Update user information, contact details, and account settings</p>
                             </div>
-                            <div v-else class="ratings-list">
-                                <div v-for="rating in profileData.ratings" :key="rating.RatingID" class="rating-item">
-                                    <div class="rating-header">
-                                        <span class="rating-category">{{rating.RatingCategory}}</span>
-                                        <span class="rating-stars">{{formatRatingStars(rating.Rating)}}</span>
-                                    </div>
-                                    <p v-if="rating.Comments">{{rating.Comments}}</p>
-                                    <div class="rating-meta">
-                                        <span>{{formatDate(rating.RatedDate)}}</span>
-                                        <span>•</span>
-                                        <span>{{rating.RatedByName}}</span>
-                                    </div>
-                                </div>
+                            <div class="action-card" @click="insertPayment(selectedProfile)">
+                                <div class="action-icon-large">💳</div>
+                                <h4>Record Payment</h4>
+                                <p>Add a new payment record and extend subscription period</p>
+                            </div>
+                            <div class="action-card" @click="viewPaymentHistory(selectedProfile)">
+                                <div class="action-icon-large">📜</div>
+                                <h4>Payment History</h4>
+                                <p>View all payment records and transaction history</p>
+                            </div>
+                            <div class="action-card" @click="confirmRemoveUser(selectedProfile)">
+                                <div class="action-icon-large danger">🗑️</div>
+                                <h4>Remove from Role</h4>
+                                <p>Remove Service Provider role from this user account</p>
                             </div>
                         </div>
                     </div>
@@ -1143,19 +1415,6 @@
             tooltip.className = 'custom-tooltip';
             document.body.appendChild(tooltip);
         }
-
-        // Tab functionality for profile panel
-        jQuery(document).on('click', '.profile-tab-btn', function (e) {
-            e.preventDefault();
-            var tab = jQuery(this).data('tab');
-
-            // Update active states
-            jQuery('.profile-tab-btn').removeClass('active');
-            jQuery(this).addClass('active');
-
-            jQuery('.profile-tab-content').removeClass('active');
-            jQuery('#' + tab + '-tab').addClass('active');
-        });
 
         // Close action menus when clicking outside
         jQuery(document).on('click', function (e) {
