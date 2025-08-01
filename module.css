@@ -179,7 +179,7 @@
 
 .filter-group {
     flex: 1;
-    min-width: 200px;
+    min-width: 180px;
 }
 
     .filter-group label {
@@ -214,6 +214,221 @@
     border-top: 1px solid #eee;
     font-style: italic;
     color: #666;
+}
+
+/* Geographic Breakdown */
+.geographic-breakdown {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+    .geographic-breakdown h4 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+.geo-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.geo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.geo-country {
+    font-weight: 600;
+    color: #333;
+}
+
+.geo-count {
+    color: #666;
+}
+
+.geo-percentage {
+    color: #3d87dd;
+    font-weight: 600;
+}
+
+/* Tooltip System (from FinHub) */
+.custom-tooltip {
+    position: fixed;
+    background: #1f2937;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1100;
+    pointer-events: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    max-width: 300px;
+    white-space: normal;
+    line-height: 1.4;
+    display: none;
+}
+
+.info-icon {
+    font-size: 12px;
+    color: #9ca3af;
+    cursor: help;
+    transition: color 0.2s;
+    margin-left: 4px;
+}
+
+    .info-icon:hover {
+        color: #3b82f6;
+    }
+
+/* Tooltip trigger elements */
+.has-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+/* Status Filter Buttons */
+.status-filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.status-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s ease;
+    min-width: 50px;
+    text-align: center;
+}
+
+    .status-btn:hover {
+        border-color: #3d87dd;
+        color: #3d87dd;
+        background: #f8f9ff;
+    }
+
+    .status-btn.active {
+        font-weight: 600;
+        color: white;
+    }
+
+        .status-btn.active:not(.status-btn-success):not(.status-btn-warning):not(.status-btn-danger):not(.status-btn-info) {
+            background: #3d87dd;
+            border-color: #3d87dd;
+        }
+
+            .status-btn.active:not(.status-btn-success):not(.status-btn-warning):not(.status-btn-danger):not(.status-btn-info):hover {
+                background: #2c5aa0;
+                border-color: #2c5aa0;
+            }
+
+/* Status-specific button colors */
+.status-btn-success.active {
+    background: #28a745;
+    border-color: #28a745;
+}
+
+    .status-btn-success.active:hover {
+        background: #218838;
+        border-color: #218838;
+    }
+
+.status-btn-warning.active {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #212529 !important;
+}
+
+    .status-btn-warning.active:hover {
+        background: #e0a800;
+        border-color: #e0a800;
+    }
+
+.status-btn-danger.active {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
+    .status-btn-danger.active:hover {
+        background: #c82333;
+        border-color: #c82333;
+    }
+
+.status-btn-info.active {
+    background: #17a2b8;
+    border-color: #17a2b8;
+}
+
+    .status-btn-info.active:hover {
+        background: #138496;
+        border-color: #138496;
+    }
+
+/* Registration Period Buttons */
+.registration-period-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.period-btn {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s ease;
+    min-width: 35px;
+    text-align: center;
+}
+
+    .period-btn:hover {
+        border-color: #3d87dd;
+        color: #3d87dd;
+        background: #f8f9ff;
+    }
+
+    .period-btn.active {
+        background: #3d87dd;
+        color: white;
+        border-color: #3d87dd;
+        font-weight: 600;
+    }
+
+        .period-btn.active:hover {
+            background: #2c5aa0;
+            border-color: #2c5aa0;
+        }
+
+/* ADDED: Filter active indicator */
+.filter-active-indicator {
+    color: #3d87dd;
+    font-weight: 600;
+    font-style: normal;
+    margin-left: 10px;
 }
 
 /* Table Styles */
@@ -276,16 +491,37 @@
     background: #f8f9fa;
 }
 
-.sp-table tbody tr.expired-row {
-    background: #fee;
+/* UPDATED: New row classes for 5-status system */
+.sp-table tbody tr.trial-row {
+    background: #e1f5fe;
+    border-left: 4px solid #00bcd4;
+}
+
+.sp-table tbody tr.active-row {
+    background: #e8f5e8;
+    border-left: 4px solid #4caf50;
+}
+
+.sp-table tbody tr.active-unpaid-row {
+    background: white;
+    border-left: 4px solid #4caf50;
+    color: #4caf50;
+}
+
+.sp-table tbody tr.expired-never-paid-row {
+    background: #fff8e1;
+    border-left: 4px solid #ffc107;
+}
+
+.sp-table tbody tr.lapsed-row {
+    background: #ffebee;
+    border-left: 4px solid #f44336;
 }
 
 .sp-table tbody tr.expiring-soon-row {
-    background: #fff8e1;
-}
-
-.sp-table tbody tr.unpaid-row {
-    background: #f5f5f5;
+    background: #fff3e0;
+    border-left: 4px solid #ff5722;
+    animation: pulse-warning 2s infinite;
 }
 
 .sp-table tbody tr.unauthorized-row {
@@ -297,6 +533,77 @@
     background: #e0e0e0;
     opacity: 0.6;
     text-decoration: line-through;
+}
+
+/* Pulse animation for expiring soon rows */
+@keyframes pulse-warning {
+    0% {
+        border-left-color: #ff5722;
+    }
+
+    50% {
+        border-left-color: #ff9800;
+    }
+
+    100% {
+        border-left-color: #ff5722;
+    }
+}
+
+/* Ensure the action cell has proper stacking context */
+.sp-table td:last-child {
+    position: relative;
+    z-index: 10;
+    overflow: visible !important;
+}
+
+.deleted-row {
+    z-index: 0 !important;
+}
+
+.unauthorized-row {
+    z-index: 0 !important;
+}
+
+/* User Info with Icons */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-icon {
+    font-size: 16px;
+    cursor: help;
+}
+
+.deleted-icon {
+    opacity: 0.7;
+}
+
+.unauthorized-icon {
+    color: #dc3545;
+}
+
+/* NEW: Expiring indicator */
+.expiring-indicator {
+    color: #ff5722;
+    font-size: 14px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 .sub-text {
@@ -383,51 +690,50 @@
         opacity: 0.8;
     }
 
-/* Status Badge */
+/* Status Badge - UPDATED with new status types */
 .status-badge {
     display: inline-block;
     padding: 4px 12px;
     border-radius: 20px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    cursor: help;
+    transition: all 0.2s ease;
+}
+
+    .status-badge:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+/* NEW: Status Badge Colors for 5-Status System */
+.status-trial {
+    background: #00bcd4 !important;
+    color: white !important;
 }
 
 .status-active {
-    background: #d4edda;
-    color: #155724;
+    background: #28a745 !important;
+    color: white !important;
 }
 
-.status-expiring {
-    background: #fff3cd;
-    color: #856404;
+.status-active-unpaid {
+    background: white !important;
+    color: #4caf50 !important;
+    border: 2px solid #4caf50 !important;
 }
 
-.status-expired {
-    background: #f8d7da;
-    color: #721c24;
+.status-expired-never-paid {
+    background: #ffc107 !important;
+    color: #212529 !important;
 }
 
-.status-unpaid {
-    background: #e2e3e5;
-    color: #383d41;
-}
-
-.status-unauthorized {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.status-deleted {
-    background: #6c757d;
-    color: #fff;
-}
-
-.status-none {
-    background: #e7e8ea;
-    color: #495057;
+.status-lapsed {
+    background: #dc3545 !important;
+    color: white !important;
 }
 
 /* Action Buttons */
@@ -525,6 +831,8 @@
     .modal-content.modal-edit {
         max-width: 700px;
         padding: 0;
+        position: relative;
+        z-index: 10000;
     }
 
 .modal-header {
@@ -572,7 +880,15 @@
     gap: 10px;
     padding: 20px 25px;
     border-top: 1px solid #eee;
+    position: relative;
+    z-index: 10001;
 }
+
+    .modal-footer button {
+        pointer-events: all;
+        position: relative;
+        z-index: 10002;
+    }
 
 .modal-content h3 {
     margin-top: 0;
@@ -762,14 +1078,12 @@
 .action-menu {
     position: absolute;
     right: 0;
-    top: 100%;
+    top: 30px; /* Adjust based on your button height */
+    z-index: 9999 !important; /* Maximum z-index */
     background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     min-width: 180px;
-    z-index: 100;
-    overflow: hidden;
 }
 
 .action-item {
@@ -925,19 +1239,112 @@
     letter-spacing: 0.5px;
 }
 
-.status-cancelled {
-    background: #e7e8ea;
-    color: #495057;
+    /* Payment status colors */
+    .payment-status.status-active {
+        background: #28a745;
+        color: white;
+    }
+
+    .payment-status.status-expired {
+        background: #dc3545;
+        color: white;
+    }
+
+    .payment-status.status-cancelled {
+        background: #6c757d;
+        color: white;
+    }
+
+    .payment-status.status-refunded {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .payment-status.status-pending {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    /* Add hover effect for better interactivity */
+    .payment-status:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
+    }
+
+/* Loading overlay adjustments */
+.sp-manager .vld-overlay {
+    border-radius: 8px;
+    z-index: 9998; /* Lower than modal */
 }
 
-.status-refunded {
-    background: #cce5ff;
-    color: #004085;
+/* CSS for portal-based action menu */
+.action-menu-portal {
+    position: fixed !important;
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    min-width: 180px;
+    border-radius: 6px;
+    z-index: 999999 !important;
+    padding: 4px 0;
 }
 
-.status-pending {
-    background: #fff3cd;
-    color: #856404;
+    .action-menu-portal .action-item {
+        display: block;
+        padding: 12px 18px;
+        text-decoration: none;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .action-menu-portal .action-item:hover {
+            background: #f8f9fa;
+            padding-left: 22px;
+        }
+
+        .action-menu-portal .action-item.danger {
+            color: #dc3545;
+        }
+
+            .action-menu-portal .action-item.danger:hover {
+                background: #f8d7da;
+            }
+
+/* Hide the original action menu when using portal approach */
+.action-dropdown .action-menu {
+    display: none;
+}
+
+/* Filter checkbox styling */
+.filter-group .checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+    color: #555;
+    font-size: 13px;
+    margin-top: 22px; /* Align with other filter inputs */
+}
+
+.filter-checkbox {
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Add hover effect */
+.filter-group .checkbox-label:hover {
+    color: #3d87dd;
+}
+
+/* Ensure proper alignment in filter row */
+.filter-row .filter-group:has(.checkbox-label) {
+    display: flex;
+    align-items: flex-end;
 }
 
 /* Responsive adjustments */
@@ -948,6 +1355,10 @@
 
     .payment-stat-cards {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sp-statistics {
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -1013,6 +1424,14 @@
         grid-template-columns: 1fr;
     }
 
+    .sp-statistics {
+        flex-direction: column;
+    }
+
+    .stat-card {
+        min-width: 100%;
+    }
+
     .modal-payment,
     .modal-history {
         max-width: 100%;
@@ -1039,16 +1458,21 @@
 }
 
 @media (max-width: 480px) {
-    .sp-statistics {
+    .status-filter-buttons {
         flex-direction: column;
     }
 
-    .stat-card {
+    .status-btn {
         min-width: 100%;
+        margin-bottom: 4px;
     }
-}
 
-/* Loading overlay adjustments */
-.sp-manager .vld-overlay {
-    border-radius: 8px;
+    .registration-period-buttons {
+        flex-direction: column;
+    }
+
+    .period-btn {
+        min-width: 100%;
+        margin-bottom: 2px;
+    }
 }

@@ -27,14 +27,15 @@ FinHubAddOns.ServiceProviderComponent = {
             sortColumn: 'DisplayName',
             sortDirection: 'asc',
 
-            // Filters
+            // Filters - UPDATED to use userStatus instead of separate payment/subscription
             filters: {
                 search: '',
+                registrationPeriod: '',
+                userStatus: '',
                 city: '',
                 state: '',
                 country: '',
-                paymentStatus: '',
-                subscriptionStatus: ''
+                hideDeleted: true  // Default to hiding deleted users
             },
 
             // Unique values for filters
@@ -108,7 +109,10 @@ FinHubAddOns.ServiceProviderComponent = {
             // Year selection for statistics
             selectedYear: new Date().getFullYear(),
             selectedYearRevenue: 0,
-            availableYears: []
+            availableYears: [],
+
+            // Geographic breakdown toggle
+            showGeographicBreakdown: false
         };
     },
 
@@ -116,6 +120,15 @@ FinHubAddOns.ServiceProviderComponent = {
         moduleId: {
             required: true,
             type: Number
+        }
+    },
+
+    watch: {
+        'editForm.isAuthorized': function (newVal, oldVal) {
+            console.log('Authorization checkbox changed from', oldVal, 'to', newVal);
+        },
+        'editForm.isDeleted': function (newVal, oldVal) {
+            console.log('Deleted checkbox changed from', oldVal, 'to', newVal);
         }
     },
 
@@ -130,43 +143,165 @@ FinHubAddOns.ServiceProviderComponent = {
             return this.filteredUsers.slice(start, end);
         },
 
+        // Updated to use new status system
         expiringIn30Days: function () {
-            var today = new Date();
-            var thirtyDaysFromNow = new Date();
-            thirtyDaysFromNow.setDate(today.getDate() + 30);
-
+            var self = this;
             return this.users.filter(function (user) {
-                if (!user.RoleExpirationDate) return false;
-                var expDate = new Date(user.RoleExpirationDate);
-                return expDate > today && expDate <= thirtyDaysFromNow;
+                return self.isExpiringWithin30Days(user);
             }).length;
         },
 
-        paidUsers: function () {
+        // Updated KPIs with new 5-status system
+        trialUsers: function () {
+            var self = this;
             return this.users.filter(function (user) {
-                return user.PaymentStatus === 'Paid';
+                return self.getStatus(user) === 'Trial';
             }).length;
+        },
+
+        activeUsers: function () {
+            var self = this;
+            return this.users.filter(function (user) {
+                return self.getStatus(user) === 'Active';
+            }).length;
+        },
+
+        activeUnpaidUsers: function () {
+            var self = this;
+            return this.users.filter(function (user) {
+                return self.getStatus(user) === 'Active + Unpaid';
+            }).length;
+        },
+
+        expiredNeverPaidUsers: function () {
+            var self = this;
+            return this.users.filter(function (user) {
+                return self.getStatus(user) === 'Expired + Never Paid';
+            }).length;
+        },
+
+        lapsedUsers: function () {
+            var self = this;
+            return this.users.filter(function (user) {
+                return self.getStatus(user) === 'Lapsed';
+            }).length;
+        },
+
+        // Legacy computed properties for backwards compatibility
+        paidUsers: function () {
+            return this.activeUsers;
         },
 
         unpaidUsers: function () {
-            var today = new Date();
-            return this.users.filter(function (user) {
-                // Unpaid if payment status is unpaid AND role hasn't expired
-                if (!user.RoleExpirationDate) {
-                    return user.PaymentStatus === 'Unpaid';
-                }
-                var expDate = new Date(user.RoleExpirationDate);
-                return user.PaymentStatus === 'Unpaid' && expDate > today;
-            }).length;
+            return this.activeUnpaidUsers + this.expiredNeverPaidUsers + this.lapsedUsers;
         },
 
         expiredUsers: function () {
+            return this.expiredNeverPaidUsers + this.lapsedUsers;
+        },
+
+        // Updated computed properties
+        newRegistrationsThisMonth: function () {
             var today = new Date();
+            var thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
             return this.users.filter(function (user) {
-                if (!user.RoleExpirationDate) return false;
-                var expDate = new Date(user.RoleExpirationDate);
-                return expDate <= today;
+                if (!user.RoleStartDate) return false;
+                var registrationDate = new Date(user.RoleStartDate);
+                return registrationDate >= thisMonth;
             }).length;
+        },
+
+        paidPercentage: function () {
+            if (this.users.length === 0) return 0;
+            return Math.round((this.activeUsers / this.users.length) * 100);
+        },
+
+        averageRevenuePerUser: function () {
+            if (this.activeUsers === 0) return 0;
+            return this.paymentStats.totalRevenue / this.activeUsers;
+        },
+
+        conversionRate: function () {
+            var totalWithPaymentHistory = this.activeUsers + this.activeUnpaidUsers + this.lapsedUsers;
+            var totalUsers = this.users.length;
+            if (totalUsers === 0) return 0;
+            return Math.round((totalWithPaymentHistory / totalUsers) * 100);
+        },
+
+        topCountriesCount: function () {
+            var countries = new Set();
+            this.users.forEach(function (user) {
+                if (user.Country) countries.add(user.Country);
+            });
+            return countries.size;
+        },
+
+        topCountries: function () {
+            var countryCount = {};
+            var total = this.users.length;
+
+            this.users.forEach(function (user) {
+                var country = user.Country || 'Unknown';
+                countryCount[country] = (countryCount[country] || 0) + 1;
+            });
+
+            return Object.keys(countryCount)
+                .map(function (country) {
+                    return {
+                        name: country,
+                        count: countryCount[country],
+                        percentage: Math.round((countryCount[country] / total) * 100)
+                    };
+                })
+                .sort(function (a, b) { return b.count - a.count; })
+                .slice(0, 8); // Top 8 countries
+        },
+
+        activeUsersPercent: function () {
+            if (this.users.length === 0) return 0;
+            return Math.round((this.activeUsers / this.users.length) * 100);
+        },
+
+        registrationTrend: function () {
+            var today = new Date();
+            var last90Days = new Date();
+            last90Days.setDate(today.getDate() - 90);
+            var previous90Days = new Date();
+            previous90Days.setDate(today.getDate() - 180);
+
+            var recent = this.users.filter(function (user) {
+                if (!user.RoleStartDate) return false;
+                var regDate = new Date(user.RoleStartDate);
+                return regDate >= last90Days;
+            }).length;
+
+            var previous = this.users.filter(function (user) {
+                if (!user.RoleStartDate) return false;
+                var regDate = new Date(user.RoleStartDate);
+                return regDate >= previous90Days && regDate < last90Days;
+            }).length;
+
+            if (previous === 0) return recent > 0 ? 100 : 0;
+            return Math.round(((recent - previous) / previous) * 100);
+        },
+
+        monthlyRecurringRevenue: function () {
+            // Calculate MRR based on active subscriptions
+            var today = new Date();
+            var mrr = 0;
+
+            this.users.forEach(function (user) {
+                if (user.PaymentStatus === 'Paid' && user.SubscriptionEndDate) {
+                    var endDate = new Date(user.SubscriptionEndDate);
+                    if (endDate > today) {
+                        // Estimate monthly revenue - this is simplified
+                        // In reality, you'd want to track actual subscription amounts
+                        mrr += 50; // Assume average €50/month per active user
+                    }
+                }
+            });
+
+            return mrr;
         }
     },
 
@@ -175,6 +310,35 @@ FinHubAddOns.ServiceProviderComponent = {
         this.loadSubscriptionPlans();
         this.loadPaymentStatistics();
         this.initializeYearSelector();
+    },
+
+    // MOUNTED MOVED HERE - OUT OF METHODS
+    mounted: function () {
+        var self = this;
+
+        // Global click handler
+        document.addEventListener('click', function (e) {
+            // Close menu if clicking outside
+            if (!e.target.closest('.action-dropdown') && !e.target.closest('.action-menu-portal')) {
+                var existingMenu = document.querySelector('.action-menu-portal');
+                if (existingMenu) {
+                    existingMenu.remove();
+                }
+                self.actionMenuOpen = null;
+            }
+        });
+
+        // Handle scroll/resize to reposition or close menu
+        var closePortalMenu = function () {
+            var existingMenu = document.querySelector('.action-menu-portal');
+            if (existingMenu) {
+                existingMenu.remove();
+                self.actionMenuOpen = null;
+            }
+        };
+
+        window.addEventListener('scroll', closePortalMenu, true);
+        window.addEventListener('resize', closePortalMenu);
     },
 
     methods: {
@@ -198,6 +362,228 @@ FinHubAddOns.ServiceProviderComponent = {
                 contentType: "application/json; charset=UTF-8",
                 beforeSend: this.service.framework.setModuleHeaders
             });
+        },
+
+        // ADDED formatCurrency method
+        formatCurrency: function (amount) {
+            if (amount === null || amount === undefined) return '€0.00';
+
+            // Convert to number if it's not already
+            var num = parseFloat(amount);
+
+            // Format with thousands separator and 2 decimal places
+            return '€' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        },
+
+        // NEW: Check if user has payment history (for distinguishing Never Paid vs Unpaid)
+        hasPaymentHistory: function (user) {
+            // This should check if user has any payment records
+            // For now, we'll use a heuristic based on available data
+            // In a real implementation, you'd check against a payment history table
+            return user.PaymentStatus === 'Paid' ||
+                user.SubscriptionEndDate ||
+                user.LastPaymentDate ||
+                (user.TotalPayments && user.TotalPayments > 0);
+        },
+
+        // NEW: Check if subscription is expiring within 30 days
+        isExpiringWithin30Days: function (user) {
+            var today = new Date();
+            var thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+            // Check role expiration date
+            if (user.RoleExpirationDate) {
+                var roleExpDate = new Date(user.RoleExpirationDate);
+                if (roleExpDate > today && roleExpDate <= thirtyDaysFromNow) {
+                    return true;
+                }
+            }
+
+            // Also check subscription end date for active users
+            if (user.SubscriptionEndDate && this.getStatus(user) === 'Active') {
+                var subExpDate = new Date(user.SubscriptionEndDate);
+                if (subExpDate > today && subExpDate <= thirtyDaysFromNow) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+
+        // NEW: Simplified 5-status system
+        getStatus: function (user) {
+            var today = new Date();
+            var registrationDate = new Date(user.RoleStartDate);
+            var hoursSinceRegistration = (today - registrationDate) / (1000 * 60 * 60);
+
+            // Check if user is in trial period (≤48 hours since registration AND never paid)
+            if (hoursSinceRegistration <= 48 && !this.hasPaymentHistory(user)) {
+                return 'Trial';
+            }
+
+            // Check if subscription is currently valid (not expired)
+            var hasValidSubscription = this.hasValidSubscription(user);
+
+            if (hasValidSubscription) {
+                // Subscription dates are valid
+                if (user.PaymentStatus === 'Paid') {
+                    return 'Active';
+                } else {
+                    return 'Active + Unpaid';
+                }
+            } else {
+                // Subscription has expired
+                if (this.hasPaymentHistory(user)) {
+                    return 'Lapsed';
+                } else {
+                    return 'Expired + Never Paid';
+                }
+            }
+        },
+
+        // NEW: Check if user has valid subscription dates
+        hasValidSubscription: function (user) {
+            var today = new Date();
+
+            // Check role expiration date
+            if (user.RoleExpirationDate) {
+                var roleExpDate = new Date(user.RoleExpirationDate);
+                if (roleExpDate > today) {
+                    return true;
+                }
+            }
+
+            // Check subscription end date
+            if (user.SubscriptionEndDate) {
+                var subEndDate = new Date(user.SubscriptionEndDate);
+                if (subEndDate > today) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+
+        // NEW: Get status tooltip text for simplified 5-status system
+        getStatusTooltip: function (user) {
+            var status = this.getStatus(user);
+            var today = new Date();
+
+            switch (status) {
+                case 'Trial':
+                    var registrationDate = new Date(user.RoleStartDate);
+                    var hoursLeft = 48 - ((today - registrationDate) / (1000 * 60 * 60));
+                    return 'Trial period - ' + Math.round(hoursLeft) + ' hours remaining. New user, never made a payment. NURTURE & CONVERT!';
+
+                case 'Active':
+                    var tooltip = 'Active paid subscription - everything is good!';
+                    if (user.SubscriptionEndDate) {
+                        var daysUntilExp = Math.floor((new Date(user.SubscriptionEndDate) - today) / (1000 * 60 * 60 * 24));
+                        tooltip += ' Expires in ' + daysUntilExp + ' days.';
+                        if (this.isExpiringWithin30Days(user)) {
+                            tooltip += ' ⚠️ EXPIRING SOON - RETENTION NEEDED!';
+                        }
+                    }
+                    return tooltip;
+
+                case 'Active + Unpaid':
+                    var tooltip = 'Subscription dates are valid but no payment received. Could be grace period or payment issue.';
+                    if (user.SubscriptionEndDate) {
+                        var daysUntilExp = Math.floor((new Date(user.SubscriptionEndDate) - today) / (1000 * 60 * 60 * 24));
+                        tooltip += ' Subscription expires in ' + daysUntilExp + ' days.';
+                    }
+                    tooltip += ' URGENT PAYMENT FOLLOW-UP REQUIRED!';
+                    return tooltip;
+
+                case 'Expired + Never Paid':
+                    var tooltip = 'Subscription period ended and user never made any payment.';
+                    if (user.SubscriptionEndDate) {
+                        var daysExpired = Math.floor((today - new Date(user.SubscriptionEndDate)) / (1000 * 60 * 60 * 24));
+                        tooltip += ' Expired ' + daysExpired + ' days ago.';
+                    }
+                    tooltip += ' CONVERSION CAMPAIGN TARGET!';
+                    return tooltip;
+
+                case 'Lapsed':
+                    var tooltip = 'Had active subscription before but has not renewed.';
+                    if (user.SubscriptionEndDate) {
+                        var daysExpired = Math.floor((today - new Date(user.SubscriptionEndDate)) / (1000 * 60 * 60 * 24));
+                        tooltip += ' Expired ' + daysExpired + ' days ago.';
+                    }
+                    tooltip += ' WIN-BACK CAMPAIGN OPPORTUNITY!';
+                    return tooltip;
+
+                default:
+                    return 'Status: ' + status;
+            }
+        },
+
+        // ADDED method to set registration period via buttons
+        setRegistrationPeriod: function (period) {
+            this.filters.registrationPeriod = period;
+            this.applyFilters();
+        },
+
+        // ADDED method to set user status via buttons
+        setUserStatus: function (status) {
+            this.filters.userStatus = status;
+            this.applyFilters();
+        },
+
+        // ADDED method to get registration period label
+        getRegistrationPeriodLabel: function (period) {
+            switch (period) {
+                case 'last7days': return 'Last 7 days';
+                case 'last30days': return 'Last 30 days';
+                case 'last90days': return 'Last 90 days';
+                case 'thisyear': return 'This year';
+                case 'lastyear': return 'Last year';
+                case 'last2years': return 'Last 2 years';
+                default: return 'All Time';
+            }
+        },
+
+        // ADDED method to check if user matches registration period filter
+        matchesRegistrationPeriod: function (user, period) {
+            if (!period || !user.RoleStartDate) return true;
+
+            var today = new Date();
+            var registrationDate = new Date(user.RoleStartDate);
+
+            switch (period) {
+                case 'last7days':
+                    var sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(today.getDate() - 7);
+                    return registrationDate >= sevenDaysAgo;
+
+                case 'last30days':
+                    var thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(today.getDate() - 30);
+                    return registrationDate >= thirtyDaysAgo;
+
+                case 'last90days':
+                    var ninetyDaysAgo = new Date();
+                    ninetyDaysAgo.setDate(today.getDate() - 90);
+                    return registrationDate >= ninetyDaysAgo;
+
+                case 'thisyear':
+                    var thisYearStart = new Date(today.getFullYear(), 0, 1);
+                    return registrationDate >= thisYearStart;
+
+                case 'lastyear':
+                    var lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
+                    var lastYearEnd = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59);
+                    return registrationDate >= lastYearStart && registrationDate <= lastYearEnd;
+
+                case 'last2years':
+                    var twoYearsAgo = new Date();
+                    twoYearsAgo.setFullYear(today.getFullYear() - 2);
+                    return registrationDate >= twoYearsAgo;
+
+                default:
+                    return true;
+            }
         },
 
         loadData: function () {
@@ -239,6 +625,7 @@ FinHubAddOns.ServiceProviderComponent = {
             this.uniqueCountries = Array.from(countries).sort();
         },
 
+        // UPDATED applyFilters to handle registration period and hideDeleted
         applyFilters: function () {
             var self = this;
             var filtered = this.users;
@@ -252,6 +639,20 @@ FinHubAddOns.ServiceProviderComponent = {
                         (user.Email && user.Email.toLowerCase().includes(search)) ||
                         (user.FirstName && user.FirstName.toLowerCase().includes(search)) ||
                         (user.LastName && user.LastName.toLowerCase().includes(search));
+                });
+            }
+
+            // Registration period filter - ADDED
+            if (this.filters.registrationPeriod) {
+                filtered = filtered.filter(function (user) {
+                    return self.matchesRegistrationPeriod(user, self.filters.registrationPeriod);
+                });
+            }
+
+            // Hide deleted filter
+            if (this.filters.hideDeleted) {
+                filtered = filtered.filter(function (user) {
+                    return !user.IsDeleted;
                 });
             }
 
@@ -274,22 +675,11 @@ FinHubAddOns.ServiceProviderComponent = {
                 });
             }
 
-            // Payment status filter
-            if (this.filters.paymentStatus) {
+            // User status filter
+            if (this.filters.userStatus) {
                 filtered = filtered.filter(function (user) {
-                    return user.PaymentStatus === self.filters.paymentStatus;
-                });
-            }
-
-            // Subscription status filter
-            if (this.filters.subscriptionStatus) {
-                var today = new Date();
-                var thirtyDaysFromNow = new Date();
-                thirtyDaysFromNow.setDate(today.getDate() + 30);
-
-                filtered = filtered.filter(function (user) {
-                    var status = self.getSubscriptionStatus(user);
-                    return status === self.filters.subscriptionStatus;
+                    var status = self.getStatus(user);
+                    return status === self.filters.userStatus;
                 });
             }
 
@@ -315,14 +705,16 @@ FinHubAddOns.ServiceProviderComponent = {
             this.currentPage = 1; // Reset to first page when filters change
         },
 
+        // UPDATED clearFilters to include userStatus and maintain hideDeleted state
         clearFilters: function () {
             this.filters = {
                 search: '',
+                registrationPeriod: '',
+                userStatus: '',
                 city: '',
                 state: '',
                 country: '',
-                paymentStatus: '',
-                subscriptionStatus: ''
+                hideDeleted: this.filters.hideDeleted  // Maintain the current hideDeleted state
             };
             this.applyFilters();
         },
@@ -356,77 +748,45 @@ FinHubAddOns.ServiceProviderComponent = {
             return this.formatDate(dateString);
         },
 
-        getStatus: function (user) {
-            var today = new Date();
-
-            // Check if user is deleted or unauthorized first
-            if (user.IsDeleted) {
-                return 'Deleted';
-            }
-
-            if (!user.IsAuthorized) {
-                return 'Unauthorized';
-            }
-
-            // Check if role has expired
-            if (user.RoleExpirationDate) {
-                var roleExpDate = new Date(user.RoleExpirationDate);
-                if (roleExpDate <= today) {
-                    return 'Expired';
-                }
-            }
-
-            // If not expired, check payment status
-            if (user.PaymentStatus === 'Unpaid') {
-                return 'Unpaid';
-            }
-
-            // If paid, check subscription status
-            if (!user.SubscriptionEndDate) {
-                return 'Active';
-            }
-
-            var subEndDate = new Date(user.SubscriptionEndDate);
-            var daysUntilExpiration = Math.floor((subEndDate - today) / (1000 * 60 * 60 * 24));
-
-            if (subEndDate <= today) return 'Expired';
-            if (daysUntilExpiration <= 30) return 'Expiring';
-            return 'Active';
-        },
-
         getSubscriptionStatus: function (user) {
             var today = new Date();
 
-            // First check role expiration
+            // First check role expiration - this should be the primary check for "expiring"
             if (user.RoleExpirationDate) {
                 var roleExpDate = new Date(user.RoleExpirationDate);
                 if (roleExpDate <= today) {
                     return 'Expired';
                 }
+
+                // Check if role is expiring within 30 days
+                var daysUntilRoleExpiration = Math.floor((roleExpDate - today) / (1000 * 60 * 60 * 24));
+                if (daysUntilRoleExpiration <= 30) {
+                    return 'Expiring';
+                }
             }
 
+            // If role is not expiring, check subscription status
             if (!user.SubscriptionEndDate) {
                 return user.PaymentStatus === 'Paid' ? 'Active' : 'No Subscription';
             }
 
-            var endDate = new Date(user.SubscriptionEndDate);
-            var daysUntilExpiration = Math.floor((endDate - today) / (1000 * 60 * 60 * 24));
+            var subEndDate = new Date(user.SubscriptionEndDate);
+            var daysUntilSubExpiration = Math.floor((subEndDate - today) / (1000 * 60 * 60 * 24));
 
-            if (endDate <= today) return 'Expired';
-            if (daysUntilExpiration <= 30) return 'Expiring';
+            if (subEndDate <= today) return 'Expired';
+            if (daysUntilSubExpiration <= 30) return 'Expiring';
             return 'Active';
         },
 
+        // UPDATED: New status class mapping for 5-status system
         getStatusClass: function (user) {
             var status = this.getStatus(user);
             switch (status) {
+                case 'Trial': return 'status-trial';
                 case 'Active': return 'status-active';
-                case 'Expiring': return 'status-expiring';
-                case 'Expired': return 'status-expired';
-                case 'Unpaid': return 'status-unpaid';
-                case 'Unauthorized': return 'status-unauthorized';
-                case 'Deleted': return 'status-deleted';
-                case 'No Subscription': return 'status-none';
+                case 'Active + Unpaid': return 'status-active-unpaid';
+                case 'Expired + Never Paid': return 'status-expired-never-paid';
+                case 'Lapsed': return 'status-lapsed';
                 default: return '';
             }
         },
@@ -451,71 +811,315 @@ FinHubAddOns.ServiceProviderComponent = {
                 return 'unauthorized-row';
             }
 
-            if (user.PaymentStatus === 'Unpaid') {
-                return 'unpaid-row';
+            // Add expiring warning to row class
+            if (this.isExpiringWithin30Days(user)) {
+                return 'expiring-soon-row';
             }
 
-            var status = this.getSubscriptionStatus(user);
-            if (status === 'Expired') return 'expired-row';
-            if (status === 'Expiring') return 'expiring-soon-row';
-            return '';
+            var status = this.getStatus(user);
+            switch (status) {
+                case 'Trial': return 'trial-row';
+                case 'Active': return 'active-row';
+                case 'Active + Unpaid': return 'active-unpaid-row';
+                case 'Expired + Never Paid': return 'expired-never-paid-row';
+                case 'Lapsed': return 'lapsed-row';
+                default: return '';
+            }
         },
 
-        // Statistics click handlers
+        // Statistics click handlers - UPDATED with new 5-status system
         filterByExpiring: function () {
             this.clearFilters();
-            this.filters.subscriptionStatus = 'Expiring';
+            // Filter to show users expiring within 30 days
+            this.filteredUsers = this.users.filter(function (user) {
+                return this.isExpiringWithin30Days(user);
+            }.bind(this));
+            this.currentPage = 1;
+        },
+
+        filterByTrial: function () {
+            this.clearFilters();
+            this.filters.userStatus = 'Trial';
             this.applyFilters();
         },
 
-        filterByPaid: function () {
+        filterByActive: function () {
             this.clearFilters();
-            this.filters.paymentStatus = 'Paid';
+            this.filters.userStatus = 'Active';
             this.applyFilters();
+        },
+
+        filterByActiveUnpaid: function () {
+            this.clearFilters();
+            this.filters.userStatus = 'Active + Unpaid';
+            this.applyFilters();
+        },
+
+        filterByExpiredNeverPaid: function () {
+            this.clearFilters();
+            this.filters.userStatus = 'Expired + Never Paid';
+            this.applyFilters();
+        },
+
+        filterByLapsed: function () {
+            this.clearFilters();
+            this.filters.userStatus = 'Lapsed';
+            this.applyFilters();
+        },
+
+        // Legacy methods for backwards compatibility
+        filterByFreeTrials: function () {
+            this.filterByTrial();
+        },
+
+        filterByNeverPaid: function () {
+            this.filterByExpiredNeverPaid();
         },
 
         filterByUnpaid: function () {
-            this.clearFilters();
-            this.filters.paymentStatus = 'Unpaid';
-            this.applyFilters();
+            this.filterByActiveUnpaid();
         },
 
         filterByExpired: function () {
+            // Show both expired categories
             this.clearFilters();
-            this.filters.subscriptionStatus = 'Expired';
-            this.applyFilters();
+            this.filteredUsers = this.users.filter(function (user) {
+                var status = this.getStatus(user);
+                return status === 'Expired + Never Paid' || status === 'Lapsed';
+            }.bind(this));
+            this.currentPage = 1;
         },
 
-        // Action menu methods
-        toggleActionMenu: function (userId) {
-            if (this.actionMenuOpen === userId) {
-                this.actionMenuOpen = null;
-            } else {
-                this.actionMenuOpen = userId;
+        // NEW: Filter by new registrations this month
+        filterByNewRegistrations: function () {
+            this.clearFilters();
+            this.setRegistrationPeriod('last30days');
+        },
+
+        // Tooltip functionality
+        showTooltip: function (event, text) {
+            var tooltip = document.getElementById('global-tooltip');
+            if (!tooltip) return;
+
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+
+            // Position tooltip
+            var rect = event.target.getBoundingClientRect();
+            var tooltipRect = tooltip.getBoundingClientRect();
+            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+            var left = rect.left + scrollLeft + (rect.width / 2) - (tooltipRect.width / 2);
+            var top = rect.top + scrollTop - tooltipRect.height - 8;
+
+            // Ensure tooltip stays within viewport
+            if (left < 10) left = 10;
+            if (left + tooltipRect.width > window.innerWidth - 10) {
+                left = window.innerWidth - tooltipRect.width - 10;
+            }
+            if (top < 10) {
+                top = rect.bottom + scrollTop + 8;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        },
+
+        hideTooltip: function () {
+            var tooltip = document.getElementById('global-tooltip');
+            if (tooltip) {
+                tooltip.style.display = 'none';
             }
         },
+
+        // Add this method to handle the action menu as a portal (append to body)
+
+        toggleActionMenu: function (userId) {
+            var self = this;
+
+            // Close previous menu if exists
+            var existingMenu = document.querySelector('.action-menu-portal');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+
+            if (this.actionMenuOpen === userId) {
+                this.actionMenuOpen = null;
+                return;
+            }
+
+            this.actionMenuOpen = userId;
+
+            this.$nextTick(function () {
+                // Find the button using the data-userid attribute
+                var button = document.querySelector('.action-dots[data-userid="' + userId + '"]');
+
+                if (!button) {
+                    // Fallback: try to find button by matching UserId in the row
+                    var user = self.paginatedUsers.find(function (u) { return u.UserId === userId; });
+                    if (user) {
+                        // Try to find button by checking each row
+                        var buttons = document.querySelectorAll('.action-dots');
+                        for (var i = 0; i < buttons.length; i++) {
+                            var btn = buttons[i];
+                            var row = btn.closest('tr');
+                            // Check if this row contains any unique identifier for the user
+                            if (row) {
+                                // Try multiple ways to identify the correct row
+                                var emailCell = row.querySelector('td:nth-child(2) a');
+                                if (emailCell && emailCell.textContent === user.Email) {
+                                    button = btn;
+                                    break;
+                                }
+                                // If email doesn't work, try display name but be more specific
+                                var nameCell = row.querySelector('td:first-child strong');
+                                if (nameCell && nameCell.textContent === user.DisplayName) {
+                                    button = btn;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!button) {
+                        console.error('Could not find action button for user ID:', userId);
+                        self.actionMenuOpen = null;
+                        return;
+                    }
+                }
+
+                // Get the user data
+                var user = self.paginatedUsers.find(function (u) { return u.UserId === userId; });
+                if (!user) {
+                    console.error('Could not find user data for ID:', userId);
+                    self.actionMenuOpen = null;
+                    return;
+                }
+
+                // Create menu element
+                var menu = document.createElement('div');
+                menu.className = 'action-menu action-menu-portal';
+                menu.innerHTML = '<a class="action-item" data-action="edit" data-userid="' + userId + '">' +
+                    '<span class="action-icon">✏️</span> Edit User' +
+                    '</a>' +
+                    '<a class="action-item" data-action="payment" data-userid="' + userId + '">' +
+                    '<span class="action-icon">💳</span> Insert Payment' +
+                    '</a>' +
+                    '<a class="action-item" data-action="history" data-userid="' + userId + '">' +
+                    '<span class="action-icon">📜</span> Payment History' +
+                    '</a>' +
+                    '<a class="action-item danger" data-action="remove" data-userid="' + userId + '">' +
+                    '<span class="action-icon">🗑️</span> Remove from Role' +
+                    '</a>';
+
+                // Position the menu
+                var rect = button.getBoundingClientRect();
+                menu.style.position = 'fixed';
+                menu.style.top = (rect.bottom + 5) + 'px';
+                menu.style.right = (window.innerWidth - rect.right) + 'px';
+                menu.style.zIndex = '999999';
+
+                // Append to body
+                document.body.appendChild(menu);
+
+                // Attach event listeners
+                menu.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var item = e.target.closest('.action-item');
+                    if (!item) return;
+
+                    var action = item.getAttribute('data-action');
+                    var targetUserId = parseInt(item.getAttribute('data-userid'));
+                    var targetUser = self.paginatedUsers.find(function (u) { return u.UserId === targetUserId; });
+
+                    if (!targetUser) {
+                        console.error('Could not find target user for action:', action, targetUserId);
+                        return;
+                    }
+
+                    switch (action) {
+                        case 'edit':
+                            self.editUser(targetUser);
+                            break;
+                        case 'payment':
+                            self.insertPayment(targetUser);
+                            break;
+                        case 'history':
+                            self.viewPaymentHistory(targetUser);
+                            break;
+                        case 'remove':
+                            self.confirmRemoveUser(targetUser);
+                            break;
+                    }
+
+                    // Close menu after action
+                    menu.remove();
+                    self.actionMenuOpen = null;
+                });
+
+                // Adjust position if menu goes off-screen
+                setTimeout(function () {
+                    if (!menu.parentElement) return; // Menu was already removed
+
+                    var menuRect = menu.getBoundingClientRect();
+
+                    if (menuRect.bottom > window.innerHeight) {
+                        menu.style.top = (rect.top - menuRect.height - 5) + 'px';
+                    }
+
+                    if (menuRect.right > window.innerWidth) {
+                        menu.style.right = '10px';
+                    }
+                }, 10);
+            });
+        },
+
+        // Replace your existing editUser method with this version that uses Vue.$set for proper reactivity:
 
         editUser: function (user) {
             this.actionMenuOpen = null;
             this.editingUser = user;
 
-            // Populate edit form with user data
+            // Reset the form first
             this.editForm = {
-                firstName: user.FirstName || '',
-                lastName: user.LastName || '',
-                displayName: user.DisplayName || '',
-                email: user.Email || '',
-                phone: user.Phone || '',
-                mobile: user.Mobile || '',
-                street: user.Street || '',
-                city: user.City || '',
-                stateRegion: user.StateRegion || '',
-                postalCode: user.PostalCode || '',
-                country: user.Country || '',
+                firstName: '',
+                lastName: '',
+                displayName: '',
+                email: '',
+                phone: '',
+                mobile: '',
+                street: '',
+                city: '',
+                stateRegion: '',
+                postalCode: '',
+                country: '',
                 roleExpirationDate: '',
-                isAuthorized: user.IsAuthorized || false,
-                isDeleted: false // Always start with false for safety
+                isAuthorized: true,
+                isDeleted: false
             };
+
+            // Then populate with user data
+            this.$set(this.editForm, 'firstName', user.FirstName || '');
+            this.$set(this.editForm, 'lastName', user.LastName || '');
+            this.$set(this.editForm, 'displayName', user.DisplayName || '');
+            this.$set(this.editForm, 'email', user.Email || '');
+            this.$set(this.editForm, 'phone', user.Phone || '');
+            this.$set(this.editForm, 'mobile', user.Mobile || '');
+            this.$set(this.editForm, 'street', user.Street || '');
+            this.$set(this.editForm, 'city', user.City || '');
+            this.$set(this.editForm, 'stateRegion', user.StateRegion || '');
+            this.$set(this.editForm, 'postalCode', user.PostalCode || '');
+            this.$set(this.editForm, 'country', user.Country || '');
+
+            // Use Vue.$set for boolean values to ensure reactivity
+            var isAuthorized = user.IsAuthorized === true || user.IsAuthorized === 1 || user.IsAuthorized === '1';
+            var isDeleted = user.IsDeleted === true || user.IsDeleted === 1 || user.IsDeleted === '1';
+
+            this.$set(this.editForm, 'isAuthorized', isAuthorized);
+            this.$set(this.editForm, 'isDeleted', isDeleted);
 
             // Set role expiration date if exists
             if (user.RoleExpirationDate) {
@@ -523,8 +1127,9 @@ FinHubAddOns.ServiceProviderComponent = {
                 var year = date.getFullYear();
                 var month = ('0' + (date.getMonth() + 1)).slice(-2);
                 var day = ('0' + date.getDate()).slice(-2);
-                this.editForm.roleExpirationDate = year + '-' + month + '-' + day;
+                this.$set(this.editForm, 'roleExpirationDate', year + '-' + month + '-' + day);
             }
+
         },
 
         cancelEdit: function () {
@@ -542,58 +1147,90 @@ FinHubAddOns.ServiceProviderComponent = {
                 postalCode: '',
                 country: '',
                 roleExpirationDate: '',
-                isAuthorized: true,
-                isDeleted: false
+                isAuthorized: true,    // Default should be true for new users
+                isDeleted: false       // Default should be false for new users
             };
         },
 
         saveUserEdit: function () {
             var self = this;
 
-            // Confirm if user is trying to delete
-            if (this.editForm.isDeleted) {
-                if (!confirm('Are you sure you want to soft delete this user? This action can be reversed by an administrator.')) {
-                    return;
-                }
-            }
+            try {
+                console.log("Save button clicked", this.editForm);
 
-            self.isLoading = true;
+                // Store the previous values
+                var wasDeleted = this.editingUser.IsDeleted === true || this.editingUser.IsDeleted === 1;
+                var wasAuthorized = this.editingUser.IsAuthorized === true || this.editingUser.IsAuthorized === 1;
 
-            var data = {
-                UserId: this.editingUser.UserId,
-                FirstName: this.editForm.firstName,
-                LastName: this.editForm.lastName,
-                DisplayName: this.editForm.displayName,
-                Phone: this.editForm.phone,
-                Mobile: this.editForm.mobile,
-                Street: this.editForm.street,
-                City: this.editForm.city,
-                StateRegion: this.editForm.stateRegion,
-                PostalCode: this.editForm.postalCode,
-                Country: this.editForm.country,
-                RoleExpirationDate: this.editForm.roleExpirationDate || null,
-                IsAuthorized: this.editForm.isAuthorized,
-                IsDeleted: this.editForm.isDeleted
-            };
+                // Convert form values to proper booleans
+                var isNowDeleted = this.editForm.isDeleted === true;
+                var isNowAuthorized = this.editForm.isAuthorized === true;
 
-            self.post("UpdateUser", data).done(function (response) {
-                var message = "User updated successfully";
-                if (data.IsDeleted) {
-                    message = "User has been soft deleted";
+                // Only confirm if changing deletion status from false to true
+                if (isNowDeleted && !wasDeleted) {
+                    if (!confirm('Are you sure you want to soft delete this user? This action can be reversed by an administrator.')) {
+                        return;
+                    }
                 }
-                toastr.success(message);
-                self.cancelEdit();
-                self.loadData();
-            }).fail(function (xhr, status, error) {
-                console.error("Update Error:", xhr.responseText);
-                var errorMsg = "Error updating user";
-                if (xhr.responseJSON && xhr.responseJSON.Message) {
-                    errorMsg = xhr.responseJSON.Message;
+
+                // Only confirm if changing authorization status from true to false
+                if (!isNowAuthorized && wasAuthorized) {
+                    if (!confirm('Are you sure you want to unauthorize this user? They will not be able to access the portal.')) {
+                        return;
+                    }
                 }
-                toastr.error(errorMsg);
-            }).always(function () {
+
+                self.isLoading = true;
+
+                var data = {
+                    UserId: this.editingUser.UserId,
+                    FirstName: this.editForm.firstName,
+                    LastName: this.editForm.lastName,
+                    DisplayName: this.editForm.displayName,
+                    Phone: this.editForm.phone,
+                    Mobile: this.editForm.mobile,
+                    Street: this.editForm.street,
+                    City: this.editForm.city,
+                    StateRegion: this.editForm.stateRegion,
+                    PostalCode: this.editForm.postalCode,
+                    Country: this.editForm.country,
+                    RoleExpirationDate: this.editForm.roleExpirationDate || null,
+                    IsAuthorized: isNowAuthorized,  // Use the properly converted boolean
+                    IsDeleted: isNowDeleted         // Use the properly converted boolean
+                };
+
+                self.post("UpdateUser", data).done(function (response) {
+                    var message = "User updated successfully";
+
+                    // Check what actually changed
+                    if (isNowDeleted && !wasDeleted) {
+                        message = "User has been soft deleted";
+                    } else if (!isNowDeleted && wasDeleted) {
+                        message = "User has been restored";
+                    } else if (!isNowAuthorized && wasAuthorized) {
+                        message = "User has been unauthorized";
+                    } else if (isNowAuthorized && !wasAuthorized) {
+                        message = "User has been authorized";
+                    }
+
+                    toastr.success(message);
+                    self.cancelEdit();
+                    self.loadData();
+                }).fail(function (xhr, status, error) {
+                    console.error("Update Error:", xhr.responseText);
+                    var errorMsg = "Error updating user";
+                    if (xhr.responseJSON && xhr.responseJSON.Message) {
+                        errorMsg = xhr.responseJSON.Message;
+                    }
+                    toastr.error(errorMsg);
+                }).always(function () {
+                    self.isLoading = false;
+                });
+            } catch (error) {
+                console.error("Error in saveUserEdit:", error);
+                toastr.error("An error occurred while saving: " + error.message);
                 self.isLoading = false;
-            });
+            }
         },
 
         insertPayment: function (user) {
@@ -643,13 +1280,14 @@ FinHubAddOns.ServiceProviderComponent = {
         loadPaymentStatistics: function () {
             var self = this;
             self.get("GetPaymentStatistics").done(function (response) {
+                console.log("Payment Statistics Response:", response); // Debug log
                 self.paymentStats = {
-                    totalPayments: response.totalPayments || 0,
-                    totalRevenue: response.totalRevenue || 0,
-                    totalDiscounts: response.totalDiscounts || 0,
-                    totalNetRevenue: response.totalNetRevenue || 0,
-                    revenueThisMonth: response.monthlyRevenue || 0,
-                    revenueThisYear: response.yearlyRevenue || 0
+                    totalPayments: response.totalPayments || response.TotalPayments || 0,
+                    totalRevenue: response.totalRevenue || response.TotalRevenue || 0,
+                    totalDiscounts: response.totalDiscounts || response.TotalDiscounts || 0,
+                    totalNetRevenue: response.totalNetRevenue || response.TotalNetRevenue || 0,
+                    revenueThisMonth: response.monthlyRevenue || response.MonthlyRevenue || response.revenueThisMonth || 0,
+                    revenueThisYear: response.yearlyRevenue || response.YearlyRevenue || response.revenueThisYear || 0
                 };
                 // Load current year revenue
                 self.loadPaymentStatisticsForYear();
@@ -671,7 +1309,8 @@ FinHubAddOns.ServiceProviderComponent = {
         loadPaymentStatisticsForYear: function () {
             var self = this;
             self.get("GetPaymentStatisticsByYear", { year: self.selectedYear }).done(function (response) {
-                self.selectedYearRevenue = response.yearlyRevenue || 0;
+                console.log("Year Statistics Response:", response); // Debug log
+                self.selectedYearRevenue = response.yearlyRevenue || response.YearlyRevenue || 0;
             }).fail(function (xhr, status, error) {
                 console.error("Error loading year statistics:", xhr.responseText);
                 self.selectedYearRevenue = 0;

@@ -228,6 +228,8 @@ namespace Lemorange.Modules.FinHubAddOns.Components
                 PaymentType = reader["PaymentType"].ToString(),
                 PlanID = reader["PlanID"] != DBNull.Value ? Convert.ToInt32(reader["PlanID"]) : (int?)null,
                 Amount = Convert.ToDecimal(reader["Amount"]),
+                // ✅ FIXED: Added the missing DiscountAmount mapping
+                DiscountAmount = reader["DiscountAmount"] != DBNull.Value ? Convert.ToDecimal(reader["DiscountAmount"]) : 0m,
                 Currency = reader["Currency"].ToString(),
                 PaymentDate = Convert.ToDateTime(reader["PaymentDate"]),
                 PaymentMethod = reader["PaymentMethod"] != DBNull.Value ? reader["PaymentMethod"].ToString() : null,

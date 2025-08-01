@@ -301,7 +301,13 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                 user.LastName = request.LastName;
                 user.DisplayName = request.DisplayName;
 
-                // Update user
+                // Handle soft delete
+                if (request.IsDeleted != user.IsDeleted)
+                {
+                    user.IsDeleted = request.IsDeleted;
+                }
+
+                // Update user (this handles basic info and deletion status)
                 UserController.UpdateUser(portalId, user);
 
                 // Update profile properties
@@ -315,29 +321,52 @@ namespace Lemorange.Modules.FinHubAddOns.Services
 
                 DotNetNuke.Entities.Profile.ProfileController.UpdateUserProfile(user);
 
-                // Update authorization status using SQL if it has changed
-                // DNN doesn't expose UserPortals in the standard API
+                // Handle authorization status change separately to avoid FolderPermission issues
                 if (request.IsAuthorized != user.Membership.Approved)
                 {
-                    user.Membership.Approved = request.IsAuthorized;
-                    UserController.UpdateUser(portalId, user);
-
-                    // Also update UserPortals table directly
-                    using (var connection = new System.Data.SqlClient.SqlConnection(DotNetNuke.Data.DataProvider.Instance().ConnectionString))
+                    try
                     {
-                        connection.Open();
-                        using (var command = new System.Data.SqlClient.SqlCommand())
+                        // Update membership status
+                        user.Membership.Approved = request.IsAuthorized;
+                        UserController.UpdateUser(portalId, user);
+
+                        // Also update UserPortals table using DNN's internal methods
+                        if (request.IsAuthorized)
                         {
-                            command.Connection = connection;
-                            command.CommandText = @"UPDATE UserPortals 
-                                                  SET Authorised = @Authorised 
-                                                  WHERE UserID = @UserID AND PortalID = @PortalID";
+                            // Authorize user
+                            UserController.ApproveUser(user);
+                        }
+                        else
+                        {
+                            // Unauthorize user - use direct SQL to avoid permission conflicts
+                            using (var connection = new System.Data.SqlClient.SqlConnection(DotNetNuke.Data.DataProvider.Instance().ConnectionString))
+                            {
+                                connection.Open();
+                                using (var command = new System.Data.SqlClient.SqlCommand())
+                                {
+                                    command.Connection = connection;
+                                    command.CommandText = @"UPDATE UserPortals 
+                                                          SET Authorised = @Authorised 
+                                                          WHERE UserID = @UserID AND PortalID = @PortalID";
 
-                            command.Parameters.AddWithValue("@Authorised", request.IsAuthorized);
-                            command.Parameters.AddWithValue("@UserID", request.UserId);
-                            command.Parameters.AddWithValue("@PortalID", portalId);
+                                    command.Parameters.AddWithValue("@Authorised", request.IsAuthorized);
+                                    command.Parameters.AddWithValue("@UserID", request.UserId);
+                                    command.Parameters.AddWithValue("@PortalID", portalId);
 
-                            command.ExecuteNonQuery();
+                                    command.ExecuteNonQuery();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception authEx)
+                    {
+                        // Log but don't fail the entire operation
+                        DotNetNuke.Services.Exceptions.Exceptions.LogException(authEx);
+
+                        // If it's the folder permission error, we can ignore it as the user update still succeeded
+                        if (!authEx.Message.Contains("FolderPermission"))
+                        {
+                            throw;
                         }
                     }
                 }
@@ -352,13 +381,6 @@ namespace Lemorange.Modules.FinHubAddOns.Services
                         portalId,
                         currentUser.UserID
                     );
-                }
-
-                // Handle soft delete
-                if (request.IsDeleted)
-                {
-                    user.IsDeleted = true;
-                    UserController.UpdateUser(portalId, user);
                 }
 
                 return Request.CreateResponse(HttpStatusCode.OK, new { success = true });

@@ -113,8 +113,11 @@ BEGIN
         up.CreatedDate AS PortalJoinDate,
         up.Authorised AS IsAuthorized,
         u.IsSuperUser,
-        -- Always return 0 for IsDeleted if column doesn't exist in older DNN versions
-        CAST(0 AS BIT) AS IsDeleted,
+        -- Check if user is deleted (either in Users table or UserPortals table)
+        CASE 
+            WHEN u.IsDeleted = 1 OR up.IsDeleted = 1 THEN 1
+            ELSE 0
+        END AS IsDeleted,
         
         -- Address Information
         (SELECT PropertyValue FROM UserProfile WHERE UserID = u.UserID AND PropertyDefinitionID = 

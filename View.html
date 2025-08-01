@@ -5,7 +5,7 @@
 [JavaScript:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2"}]
 [CSS:{ path: "https://cdn.jsdelivr.net/npm/vue-loading-overlay@2.2.2/dist/vue-loading.min.css"}]
 [JavaScript:{ path: "~/Resources/Shared/scripts/dnn.jquery.js"}]
-[JavaScript:{ path: "~/DesktopModules/FinHubAddOns/scripts/ServiceProviderView.js"}]
+[JavaScript:{ path: "~/DesktopModules/FinHubAddOns/Scripts/ServiceProviderView.js"}]
 [CSS:{ path: "~/DesktopModules/FinHubAddOns/module.css"}]
 
 [AntiForgeryToken:true]
@@ -28,55 +28,152 @@
         <!-- Payment Statistics Section -->
         <div class="payment-statistics">
             <div class="payment-stats-header">
-                <h3>Payment Overview</h3>
-                <div class="year-selector">
-                    <label>Year:</label>
-                    <select v-model="selectedYear" @change="loadPaymentStatisticsForYear" class="year-select">
-                        <option v-for="year in availableYears" :key="year" :value="year">{{year}}</option>
-                    </select>
-                </div>
+                <h3>Payment Overview</h3>               
             </div>
             <div class="payment-stat-cards">
-                <div class="payment-stat-card">
-                    <div class="payment-stat-value">€{{paymentStats.totalRevenue.toFixed(2)}}</div>
-                    <div class="payment-stat-label">Total Revenue</div>
+                <div class="payment-stat-card has-tooltip"
+                     @mouseenter="showTooltip($event, 'Total revenue generated from all SP payments. Indicates overall business performance and growth direction.')"
+                     @mouseleave="hideTooltip">
+                    <div class="payment-stat-value">{{formatCurrency(paymentStats.totalRevenue)}}</div>
+                    <div class="payment-stat-label">Total Revenue <i class="info-icon">ℹ</i></div>
                 </div>
-                <div class="payment-stat-card">
-                    <div class="payment-stat-value">€{{paymentStats.totalDiscounts.toFixed(2)}}</div>
-                    <div class="payment-stat-label">Total Discounts</div>
+                <div class="payment-stat-card has-tooltip"
+                     @mouseenter="showTooltip($event, 'Total amount of discounts given to customers.')"
+                     @mouseleave="hideTooltip">
+                    <div class="payment-stat-value">{{formatCurrency(paymentStats.totalDiscounts)}}</div>
+                    <div class="payment-stat-label">Total Discounts <i class="info-icon">ℹ</i></div>
                 </div>
-                <div class="payment-stat-card">
-                    <div class="payment-stat-value">€{{paymentStats.revenueThisMonth.toFixed(2)}}</div>
-                    <div class="payment-stat-label">This Month</div>
+                <div class="payment-stat-card has-tooltip"
+                     @mouseenter="showTooltip($event, 'Revenue generated this month.')"
+                     @mouseleave="hideTooltip">
+                    <div class="payment-stat-value">{{formatCurrency(paymentStats.revenueThisMonth)}}</div>
+                    <div class="payment-stat-label">This Month <i class="info-icon">ℹ</i></div>
                 </div>
-                <div class="payment-stat-card">
-                    <div class="payment-stat-value">€{{selectedYearRevenue.toFixed(2)}}</div>
-                    <div class="payment-stat-label">{{selectedYear}} Revenue</div>
+                <div class="payment-stat-card has-tooltip"
+                     @mouseenter="showTooltip($event, 'Revenue for the selected year.')"
+                     @mouseleave="hideTooltip">
+                    <div class="payment-stat-value">{{formatCurrency(selectedYearRevenue)}}</div>
+                    <div class="payment-stat-label">
+                        <select v-model="selectedYear" @change="loadPaymentStatisticsForYear" class="year-select">
+                            <option v-for="year in availableYears" :key="year" :value="year">{{year}}</option>
+                        </select>
+                        Revenue <i class="info-icon">ℹ</i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Statistics Section -->
+        <!-- Enhanced Statistics Section with New 5-Status System -->
         <div class="sp-statistics">
-            <div class="stat-card warning clickable" @click="filterByExpiring">
+            <!-- Trial Users -->
+            <div class="stat-card info clickable has-tooltip" @click="filterByTrial" 
+                 @mouseenter="showTooltip($event, 'Users in their first 48 hours who never paid. Prime time for nurturing and conversion!')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{trialUsers}}</div>
+                <div class="stat-label">Trial <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Active Users -->
+            <div class="stat-card success clickable has-tooltip" @click="filterByActive"
+                 @mouseenter="showTooltip($event, 'Users with active paid subscriptions. Your current revenue base - keep them happy!')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{activeUsers}}</div>
+                <div class="stat-label">Active ({{paidPercentage}}%) <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Active + Unpaid -->
+            <div class="stat-card warning clickable has-tooltip" @click="filterByActiveUnpaid"
+                 @mouseenter="showTooltip($event, 'Subscription dates are valid but no payment received. Could be grace period or payment issue. URGENT PAYMENT FOLLOW-UP REQUIRED!')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{activeUnpaidUsers}}</div>
+                <div class="stat-label">Active + Unpaid <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Expiring Soon -->
+            <div class="stat-card danger clickable has-tooltip" @click="filterByExpiring"
+                 @mouseenter="showTooltip($event, 'Active users whose subscriptions expire within 30 days. Requires IMMEDIATE retention action!')"
+                 @mouseleave="hideTooltip">
                 <div class="stat-number">{{expiringIn30Days}}</div>
-                <div class="stat-label">Expiring in 30 days</div>
+                <div class="stat-label">Expiring Soon <i class="info-icon">ℹ</i></div>
             </div>
-            <div class="stat-card clickable" @click="clearFilters">
+            
+            <!-- Expired + Never Paid -->
+            <div class="stat-card warning clickable has-tooltip" @click="filterByExpiredNeverPaid"
+                 @mouseenter="showTooltip($event, 'Subscription ended and never made a payment. CONVERSION CAMPAIGN targets!')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{expiredNeverPaidUsers}}</div>
+                <div class="stat-label">Expired + Never Paid <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Lapsed Users -->
+            <div class="stat-card danger clickable has-tooltip" @click="filterByLapsed"
+                 @mouseenter="showTooltip($event, 'Had active subscription before but did not renew. WIN-BACK OPPORTUNITY!')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{lapsedUsers}}</div>
+                <div class="stat-label">Lapsed <i class="info-icon">ℹ</i></div>
+            </div>
+        </div>
+
+        <!-- Additional KPI Cards Row -->
+        <div class="sp-statistics">
+            <!-- New Registrations This Month -->
+            <div class="stat-card info clickable has-tooltip" @click="filterByNewRegistrations" 
+                 @mouseenter="showTooltip($event, 'Number of service providers who registered this month. Growth indicator.')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{newRegistrationsThisMonth}}</div>
+                <div class="stat-label">New This Month <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Total Users -->
+            <div class="stat-card clickable has-tooltip" @click="clearFilters"
+                 @mouseenter="showTooltip($event, 'Total number of service providers in FinHub (all statuses combined).')"
+                 @mouseleave="hideTooltip">
                 <div class="stat-number">{{users.length}}</div>
-                <div class="stat-label">Total Service Providers</div>
+                <div class="stat-label">Total Users <i class="info-icon">ℹ</i></div>
             </div>
-            <div class="stat-card success clickable" @click="filterByPaid">
-                <div class="stat-number">{{paidUsers}}</div>
-                <div class="stat-label">Paid</div>
+            
+            <!-- Average Revenue Per User -->
+            <div class="stat-card success has-tooltip"
+                 @mouseenter="showTooltip($event, 'Average Revenue generated per active paying customer. Higher ARPU indicates better pricing and value delivery.')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{formatCurrency(averageRevenuePerUser)}}</div>
+                <div class="stat-label">Avg Revenue/User <i class="info-icon">ℹ</i></div>
             </div>
-            <div class="stat-card info clickable" @click="filterByUnpaid">
-                <div class="stat-number">{{unpaidUsers}}</div>
-                <div class="stat-label">Unpaid</div>
+            
+            <!-- Conversion Rate -->
+            <div class="stat-card info has-tooltip"
+                 @mouseenter="showTooltip($event, 'Percentage of users who eventually made at least one payment. Indicates sales effectiveness.')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{conversionRate}}%</div>
+                <div class="stat-label">Ever-Paid Rate <i class="info-icon">ℹ</i></div>
             </div>
-            <div class="stat-card danger clickable" @click="filterByExpired">
-                <div class="stat-number">{{expiredUsers}}</div>
-                <div class="stat-label">Expired</div>
+            
+            <!-- Geographic Distribution -->
+            <div class="stat-card clickable has-tooltip" @click="showGeographicBreakdown = !showGeographicBreakdown"
+                 @mouseenter="showTooltip($event, 'Number of different countries represented in your user base.')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{topCountriesCount}}</div>
+                <div class="stat-label">Countries <i class="info-icon">ℹ</i></div>
+            </div>
+            
+            <!-- Monthly Recurring Revenue -->
+            <div class="stat-card success has-tooltip"
+                 @mouseenter="showTooltip($event, 'Estimated monthly recurring revenue from active subscriptions. Key business health metric.')"
+                 @mouseleave="hideTooltip">
+                <div class="stat-number">{{formatCurrency(monthlyRecurringRevenue)}}</div>
+                <div class="stat-label">Est. MRR <i class="info-icon">ℹ</i></div>
+            </div>
+        </div>
+
+        <!-- Geographic Breakdown (Collapsible) -->
+        <div v-if="showGeographicBreakdown" class="geographic-breakdown">
+            <h4>Geographic Distribution</h4>
+            <div class="geo-stats">
+                <div v-for="country in topCountries" :key="country.name" class="geo-item">
+                    <span class="geo-country">{{country.name}}</span>
+                    <span class="geo-count">{{country.count}} users</span>
+                    <span class="geo-percentage">({{country.percentage}}%)</span>
+                </div>
             </div>
         </div>
 
@@ -89,6 +186,85 @@
                            placeholder="Name, email, username..." class="filter-input">
                 </div>
                 
+                <div class="filter-group">
+                    <label>Registration Date:</label>
+                    <div class="registration-period-buttons">
+                        <button type="button" 
+                                @click="setRegistrationPeriod('')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === '' }]">
+                            All Time
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('last7days')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'last7days' }]">
+                            7d
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('last30days')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'last30days' }]">
+                            30d
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('last90days')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'last90days' }]">
+                            90d
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('thisyear')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'thisyear' }]">
+                            This Year
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('lastyear')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'lastyear' }]">
+                            Last Year
+                        </button>
+                        <button type="button" 
+                                @click="setRegistrationPeriod('last2years')" 
+                                :class="['period-btn', { 'active': filters.registrationPeriod === 'last2years' }]">
+                            2y
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filter-group">
+                    <label>User Status:</label>
+                    <div class="status-filter-buttons">
+                        <button type="button" 
+                                @click="setUserStatus('')" 
+                                :class="['status-btn', { 'active': filters.userStatus === '' }]">
+                            All
+                        </button>
+                        <button type="button" 
+                                @click="setUserStatus('Trial')" 
+                                :class="['status-btn', 'status-btn-info', { 'active': filters.userStatus === 'Trial' }]">
+                            Trial
+                        </button>
+                        <button type="button" 
+                                @click="setUserStatus('Active')" 
+                                :class="['status-btn', 'status-btn-success', { 'active': filters.userStatus === 'Active' }]">
+                            Active
+                        </button>
+                        <button type="button" 
+                                @click="setUserStatus('Active + Unpaid')" 
+                                :class="['status-btn', 'status-btn-success', { 'active': filters.userStatus === 'Active + Unpaid' }]">
+                            Active + Unpaid
+                        </button>
+                        <button type="button" 
+                                @click="setUserStatus('Expired + Never Paid')" 
+                                :class="['status-btn', 'status-btn-warning', { 'active': filters.userStatus === 'Expired + Never Paid' }]">
+                            Expired + Never Paid
+                        </button>
+                        <button type="button" 
+                                @click="setUserStatus('Lapsed')" 
+                                :class="['status-btn', 'status-btn-danger', { 'active': filters.userStatus === 'Lapsed' }]">
+                            Lapsed
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="filter-row">
                 <div class="filter-group">
                     <label>City:</label>
                     <select v-model="filters.city" @change="applyFilters" class="filter-select">
@@ -112,33 +288,30 @@
                         <option v-for="country in uniqueCountries" :key="country" :value="country">{{country}}</option>
                     </select>
                 </div>
+
+                <div class="filter-group">
+                     <label class="checkbox-label">
+                            <input type="checkbox" 
+                                   v-model="filters.hideDeleted" 
+                                   @change="applyFilters"
+                                   class="filter-checkbox">
+                          <span>Hide deleted SPs</span>
+                     </label>
+                </div>
             </div>
             
             <div class="filter-row">
-                <div class="filter-group">
-                    <label>Payment Status:</label>
-                    <select v-model="filters.paymentStatus" @change="applyFilters" class="filter-select">
-                        <option value="">All</option>
-                        <option value="Paid">Paid</option>
-                        <option value="Unpaid">Unpaid</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Subscription Status:</label>
-                    <select v-model="filters.subscriptionStatus" @change="applyFilters" class="filter-select">
-                        <option value="">All</option>
-                        <option value="Active">Active</option>
-                        <option value="Expiring">Expiring Soon</option>
-                        <option value="Expired">Expired</option>
-                    </select>
-                </div>
-                
                 <button type="button" @click="clearFilters" class="btn-modern btn-secondary">Clear Filters</button>
             </div>
             
             <div class="filter-summary">
-                Showing {{filteredUsers.length}} of {{users.length}} users
+                Showing {{filteredUsers.length}} of {{users.length}} Service Providers
+                <span v-if="filters.registrationPeriod" class="filter-active-indicator">
+                    (Filtered by: {{getRegistrationPeriodLabel(filters.registrationPeriod)}})
+                </span>
+                <span v-if="filters.userStatus" class="filter-active-indicator">
+                    (Status: {{filters.userStatus}})
+                </span>
             </div>
         </div>
 
@@ -170,7 +343,10 @@
                 <tbody>
                     <tr v-for="user in paginatedUsers" :key="user.UserId" :class="getRowClass(user)">
                         <td>
-                            <strong>{{user.DisplayName}}</strong>
+                            <div class="user-info">
+                                <strong>{{user.DisplayName}}</strong>
+                                <span v-if="isExpiringWithin30Days(user)" class="expiring-indicator" title="Expiring within 30 days!">⚠️</span>
+                            </div>
                             <div class="sub-text">{{user.FirstName}} {{user.LastName}}</div>
                         </td>
                         <td>
@@ -202,27 +378,26 @@
                             </div>
                         </td>
                         <td>
-                            <span :class="['status-badge', getStatusClass(user)]">
+                            <span :class="['status-badge', getStatusClass(user)]"
+                                  :title="
+                                    getStatus(user) === 'Trial' ? 'Trial period - user registered within 48 hours, never paid. NURTURE & CONVERT!' :
+                                    getStatus(user) === 'Active' ? 'Active paid subscription - everything is good! Keep them happy!' :
+                                    getStatus(user) === 'Active + Unpaid' ? 'Subscription dates valid but no payment received. Could be grace period. URGENT PAYMENT FOLLOW-UP REQUIRED!' :
+                                    getStatus(user) === 'Expired + Never Paid' ? 'Subscription period ended and user never made any payment. CONVERSION CAMPAIGN TARGET!' :
+                                    getStatus(user) === 'Lapsed' ? 'Had active subscription before but did not renew. WIN-BACK CAMPAIGN OPPORTUNITY!' :
+                                    'Status: ' + getStatus(user)
+                                  ">
                                 {{getStatus(user)}}
                             </span>
+                            <span v-if="user.IsDeleted" class="user-icon deleted-icon" title="User is soft deleted">🗑️</span>
+                            <span v-if="!user.IsAuthorized" class="user-icon unauthorized-icon" title="User is unauthorized">🚫</span>
                         </td>
                         <td>
                             <div class="action-dropdown">
-                                <button type="button" @click="toggleActionMenu(user.UserId)" class="action-dots">⋮</button>
-                                <div v-if="actionMenuOpen === user.UserId" class="action-menu">
-                                    <a @click="editUser(user)" class="action-item">
-                                        <span class="action-icon">✏️</span> Edit User
-                                    </a>
-                                    <a @click="insertPayment(user)" class="action-item">
-                                        <span class="action-icon">💳</span> Insert Payment
-                                    </a>
-                                    <a @click="viewPaymentHistory(user)" class="action-item">
-                                        <span class="action-icon">📜</span> Payment History
-                                    </a>
-                                    <a @click="confirmRemoveUser(user)" class="action-item danger">
-                                        <span class="action-icon">🗑️</span> Remove from Role
-                                    </a>
-                                </div>
+                                <button type="button" 
+                                        @click="toggleActionMenu(user.UserId)" 
+                                        class="action-dots"
+                                        :data-userid="user.UserId">⋮</button>
                             </div>
                         </td>
                     </tr>
@@ -249,8 +424,8 @@
         </div>
 
         <!-- Edit User Modal -->
-        <div v-if="editingUser" class="modal-overlay" @click="cancelEdit">
-            <div class="modal-content modal-edit" @click.stop>
+        <div v-if="editingUser" class="modal-overlay" @click.self="cancelEdit">
+            <div class="modal-content modal-edit">
                 <div class="modal-header">
                     <h3>Edit User: {{editingUser.DisplayName}}</h3>
                     <button type="button" class="modal-close" @click="cancelEdit">×</button>
@@ -289,8 +464,8 @@
                                 <input type="text" v-model="editForm.displayName" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" v-model="editForm.email" class="form-control">
+                                <label>Email <span class="sub-text">(Read-only)</span></label>
+                                <input type="email" v-model="editForm.email" class="form-control" readonly title="Email cannot be changed from this interface">
                             </div>
                         </div>
 
@@ -348,8 +523,8 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Current Payment Status</label>
-                                <input type="text" :value="editingUser.PaymentStatus" class="form-control" disabled>
+                                <label>Current Status</label>
+                                <input type="text" :value="getStatus(editingUser)" class="form-control" disabled>
                             </div>
                             <div class="form-group">
                                 <label>Current Plan</label>
@@ -362,14 +537,18 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" v-model="editForm.isAuthorized" class="form-checkbox">
+                                    <input type="checkbox" 
+                                           v-model="editForm.isAuthorized" 
+                                           class="form-checkbox">
                                     <span>User is Authorized</span>
                                 </label>
                                 <div class="form-help">Unauthorized users cannot access the portal</div>
                             </div>
                             <div class="form-group">
                                 <label class="checkbox-label danger">
-                                    <input type="checkbox" v-model="editForm.isDeleted" class="form-checkbox">
+                                    <input type="checkbox" 
+                                           v-model="editForm.isDeleted" 
+                                           class="form-checkbox">
                                     <span>Soft Delete User</span>
                                 </label>
                                 <div class="form-help danger">User will be marked as deleted but data retained</div>
@@ -526,9 +705,9 @@
                                 <tr v-for="payment in paymentHistory" :key="payment.PaymentID">
                                     <td>{{formatDate(payment.PaymentDate)}}</td>
                                     <td>{{payment.PlanName || '-'}}</td>
-                                    <td>€{{payment.Amount}}</td>
-                                    <td>€{{payment.DiscountAmount || 0}}</td>
-                                    <td style="font-weight: bold;">€{{(payment.Amount - (payment.DiscountAmount || 0)).toFixed(2)}}</td>
+                                    <td>{{formatCurrency(payment.Amount)}}</td>
+                                    <td>{{formatCurrency(payment.DiscountAmount || 0)}}</td>
+                                    <td style="font-weight: bold;">{{formatCurrency(payment.Amount - (payment.DiscountAmount || 0))}}</td>
                                     <td>
                                         <div v-if="payment.SubscriptionStartDate && payment.SubscriptionEndDate">
                                             {{formatDate(payment.SubscriptionStartDate)}} - {{formatDate(payment.SubscriptionEndDate)}}
@@ -560,7 +739,7 @@
     jQuery(function () {
         var moduleId = parseInt("[ModuleContext:ModuleId]");
 
-        new Vue({
+        var app = new Vue({
             data: {
                 moduleId: moduleId
             },
@@ -570,12 +749,23 @@
             }
         });
 
+        // Store Vue instance for debugging
+        window['ServiceProviderApp_' + moduleId] = app;
+
+        // Create global tooltip element
+        if (!document.getElementById('global-tooltip')) {
+            var tooltip = document.createElement('div');
+            tooltip.id = 'global-tooltip';
+            tooltip.className = 'custom-tooltip';
+            document.body.appendChild(tooltip);
+        }
+
         // Close action menus when clicking outside
         jQuery(document).on('click', function (e) {
             if (!jQuery(e.target).closest('.action-dropdown').length) {
-                var vm = Vue.prototype._vueInstances && Vue.prototype._vueInstances[0];
-                if (vm && vm.$children[0]) {
-                    vm.$children[0].actionMenuOpen = null;
+                var vm = app.$children[0];
+                if (vm) {
+                    vm.actionMenuOpen = null;
                 }
             }
         });
