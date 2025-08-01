@@ -439,7 +439,7 @@
                             <span class="avatar-initials">{{getInitials(selectedProfile.DisplayName)}}</span>
                         </div>
                         <div class="profile-basic-info">
-                            <h1>{{selectedProfile.DisplayName}}</h1>
+                            <h1 class="text-white">{{selectedProfile.DisplayName}}</h1>
                             <div class="profile-subtitle">{{selectedProfile.Email}}</div>
                             <div class="profile-contact-quick">
                                 <span v-if="selectedProfile.Phone" class="contact-item">📞 {{selectedProfile.Phone}}</span>
@@ -895,7 +895,7 @@
                                             {{project.OfferStatus}}
                                         </span>
                                     </div>
-                                    <div v-if="isProjectWon(project)" class="project-won-indicator">
+                                    <div v-if="isProjectWonByThisSP(project)" class="project-won-indicator">
                                         <span class="won-badge">🏆 Won</span>
                                     </div>
                                 </div>

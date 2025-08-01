@@ -1081,16 +1081,7 @@ FinHubAddOns.ServiceProviderComponent = {
             if (!this.profileData.projects) return 0;
             return this.profileData.projects.length;
         },
-
-        // Get number of awarded projects (status 2 or 4)
-        getAwardedProjects: function () {
-            if (!this.profileData.projects) return 0;
-            var self = this;
-            return this.profileData.projects.filter(function (project) {
-                return self.isProjectWonByThisSP(project);
-            }).length;
-        },
-
+       
         // Get number of pending projects (status 0 or 1)
         getPendingProjects: function () {
             if (!this.profileData.projects) return 0;
@@ -1114,11 +1105,19 @@ FinHubAddOns.ServiceProviderComponent = {
             if (!this.profileData.projects) return 0;
             var self = this;
             return this.profileData.projects.reduce(function (total, project) {
-                if (self.isProjectWonByThisSP(project)) {
+                if (self.isProjectWonByThisSP(project)) {  // Use numeric version
                     return total + self.getProjectValue(project);
                 }
                 return total;
             }, 0);
+        },
+
+        getAwardedProjects: function () {
+            if (!this.profileData.projects) return 0;
+            var self = this;
+            return this.profileData.projects.filter(function (project) {
+                return self.isProjectWonByThisSP(project);  // Use numeric version
+            }).length;
         },
 
         //TEMP TEMP: Debugging method to log project data   
@@ -1199,23 +1198,16 @@ FinHubAddOns.ServiceProviderComponent = {
         },
 
         isProjectWonByThisSP: function (project) {
-            // Method 1: Check if OfferStatus indicates this SP won
+            // Check if OfferStatus indicates this SP won
             if (typeof project.OfferStatus === 'number' || !isNaN(project.OfferStatus)) {
                 var numericStatus = parseInt(project.OfferStatus);
-                // You'll need to tell me which status numbers mean "this SP won"
-                return numericStatus === 2 || numericStatus === 4; // Adjust based on your data
+                return numericStatus === 2; // Only status 2 means accepted/won
             }
 
-            // Method 2: Check if there's a field indicating this SP won
+            // Fallback: Check if there's a field indicating this SP won
             if (project.IsWon === true || project.IsWon === 1) return true;
             if (project.Won === true || project.Won === 1) return true;
             if (project.Awarded === true || project.Awarded === 1) return true;
-
-            // Method 3: String status check
-            if (typeof project.OfferStatus === 'string') {
-                var wonStatuses = ['won', 'awarded', 'accepted', 'completed'];
-                return wonStatuses.includes(project.OfferStatus.toLowerCase());
-            }
 
             return false;
         },
@@ -1295,9 +1287,19 @@ FinHubAddOns.ServiceProviderComponent = {
 
         // Check if project was won
         isProjectWon: function (project) {
-            if (!project.OfferStatus) return false;
-            var wonStatuses = ['accepted', 'won', 'awarded', 'completed'];
-            return wonStatuses.includes(project.OfferStatus.toLowerCase());
+            // First try numeric status (primary method)
+            if (typeof project.OfferStatus === 'number' || !isNaN(project.OfferStatus)) {
+                var numericStatus = parseInt(project.OfferStatus);
+                return numericStatus === 2;
+            }
+
+            // Fallback: try string status
+            if (project.OfferStatus && typeof project.OfferStatus === 'string') {
+                var wonStatuses = ['accepted', 'won', 'awarded', 'completed'];
+                return wonStatuses.includes(project.OfferStatus.toLowerCase());
+            }
+
+            return false;
         },
 
         // Truncate HTML content while preserving tags
