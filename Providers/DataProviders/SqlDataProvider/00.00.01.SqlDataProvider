@@ -334,10 +334,10 @@ IF NOT EXISTS (SELECT * FROM FinSubscriptionPlans)
 BEGIN
     INSERT INTO FinSubscriptionPlans (PlanName, PlanType, Description, Amount, Currency, DurationMonths, SortOrder)
     VALUES 
-    ('Service Provider Annual', 'ServiceProvider', 'Annual subscription for service providers', 500.00, 'EUR', 12, 1),
-    ('Service Provider Semi-Annual', 'ServiceProvider', 'Semi-annual subscription for service providers', 300.00, 'EUR', 6, 2),
-    ('Project Submitter Annual', 'User', 'Annual subscription for project submitters', 200.00, 'EUR', 12, 3),
-    ('Project Submitter Monthly', 'User', 'Monthly subscription for project submitters', 25.00, 'EUR', 1, 4)
+    ('Small Plan', 'ServiceProvider', '< 3 Employees Per Annum', 2000.00, 'EUR', 12, 1),
+    ('Standard Plan', 'ServiceProvider', '< 8 Employees Per Annum', 2500.00, 'EUR', 6, 2),
+    ('Large Plan', 'ServiceProvider', '< 30 Employees', 4000.00, 'EUR', 12, 3),
+    ('Enterprise Plan', 'ServiceProvider', '< 300 Employees', 6000.00, 'EUR', 1, 4)
 END
 GO
 
