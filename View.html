@@ -316,10 +316,7 @@
         </div>
 
         <!-- Users Table -->
-        <div class="sp-table-container">
-            <div class="table-header-info">
-                <span class="table-instruction">💡 <strong>Tip:</strong> Double-click any row to view detailed profile, or use the ⋮ menu for quick actions</span>
-            </div>
+        <div class="sp-table-container">          
             <table class="sp-table">
                 <thead>
                     <tr>
@@ -471,85 +468,103 @@
                     </div>
                 </div>
 
-                <!-- Profile Navigation with Counts - UPDATED -->
+               <!-- Profile Navigation with Counts -->
                 <div class="profile-nav">
                     <button type="button" 
                             @click="activeProfileTab = 'overview'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'overview' }]">
-                        <span class="nav-icon">📊</span>
-                        Overview
+                         <span class="nav-icon">
+                             <img src="/images/stats.svg" alt="Overview" class="icon-small">
+                         </span>
+                        <span class="nav-title">Overview</span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'timeline'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'timeline' }]">
-                        <span class="nav-icon">📝</span>
-                        Timeline
+                        <span class="nav-icon">
+                            <img src="/images/timeline.svg" alt="Timeline" class="icon-small">
+                        </span>
+                        <span class="nav-title">Timeline</span>
                         <span v-if="profileData.actions.length > 0" 
                               :class="getBadgeClasses(profileData.actions.length, 'timeline')">
                             {{profileData.actions.length}}
                         </span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'tasks'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'tasks' }]">
-                        <span class="nav-icon">📋</span>
-                        Tasks
+                          <span class="nav-icon">
+                              <img src="/images/tasks.svg" alt="Tasks" class="icon-small">
+                          </span>
+                        <span class="nav-title">Tasks</span>
                         <span v-if="profileData.tasks.length > 0" 
                               :class="getBadgeClasses(profileData.tasks.length, 'tasks')">
                             {{profileData.tasks.length}}
                         </span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'projects'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'projects' }]">
-                        <span class="nav-icon">💼</span>
-                        Projects
+                         <span class="nav-icon">
+                             <img src="/images/projects.svg" alt="Projects" class="icon-small">
+                         </span>
+                        <span class="nav-title">Projects</span>
                         <span v-if="profileData.projects.length > 0" 
                               :class="getBadgeClasses(profileData.projects.length, 'projects')">
                             {{profileData.projects.length}}
                         </span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'ratings'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'ratings' }]">
-                        <span class="nav-icon">⭐</span>
-                        Ratings
+                          <span class="nav-icon">
+                              <img src="/images/ratings.svg" alt="Ratings" class="icon-small">
+                          </span>
+                        <span class="nav-title">Ratings</span>
                         <span v-if="profileData.ratings.length > 0" 
                               :class="getBadgeClasses(profileData.ratings.length, 'ratings')">
                             {{profileData.ratings.length}}
                         </span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'profile'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'profile' }]">
-                        <span class="nav-icon">👤</span>
-                        Profile Data
+                         <span class="nav-icon">
+                             <img src="/images/companies.svg" alt="Companies" class="icon-small">
+                         </span>
+                        <span class="nav-title">Profile Data</span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'edit'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'edit' }]">
-                        <span class="nav-icon">✏️</span>
-                        Edit Profile
+                         <span class="nav-icon">
+                             <img src="/images/edit.svg" alt="Edit" class="icon-small">
+                         </span>
+                        <span class="nav-title">Edit Profile</span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'payments'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'payments' }]">
-                        <span class="nav-icon">💳</span>
-                        Record Payment
+                          <span class="nav-icon">
+                              <img src="/images/payment.svg" alt="Payment" class="icon-small">
+                          </span>
+                        <span class="nav-title">Record Payment</span>
                     </button>
-    
+   
                     <button type="button" 
                             @click="activeProfileTab = 'payment-history'" 
                             :class="['profile-nav-btn', { 'active': activeProfileTab === 'payment-history' }]">
-                        <span class="nav-icon">📜</span>
-                        Payment History
+                        <span class="nav-icon">
+                            <img src="/images/history.svg" alt="History" class="icon-small">
+                        </span>
+                        <span class="nav-title">Payment History</span>
                         <span v-if="paymentHistory.length > 0" 
                               :class="getBadgeClasses(paymentHistory.length, 'payments')">
                             {{paymentHistory.length}}

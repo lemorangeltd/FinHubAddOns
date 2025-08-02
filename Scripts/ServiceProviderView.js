@@ -1500,20 +1500,21 @@ FinHubAddOns.ServiceProviderComponent = {
                 // Create menu element
                 var menu = document.createElement('div');
                 menu.className = 'action-menu action-menu-portal';
-                menu.innerHTML = '<a class="action-item" data-action="profile" data-userid="' + userId + '">' +
-                    '<span class="action-icon">👤</span> View Profile' +
+                menu.innerHTML =
+                    '<a class="action-item" data-action="profile" data-userid="' + userId + '">' +
+                    '<img src="/images/companies.svg" alt="Profile" class="menu-icon default"> View Profile' +
                     '</a>' +
                     '<a class="action-item" data-action="edit" data-userid="' + userId + '">' +
-                    '<span class="action-icon">✏️</span> Edit User' +
+                    '<img src="/images/edit.svg" alt="Edit" class="menu-icon default"> Edit User' +
                     '</a>' +
                     '<a class="action-item" data-action="payment" data-userid="' + userId + '">' +
-                    '<span class="action-icon">💳</span> Insert Payment' +
+                    '<img src="/images/payment.svg" alt="Payment" class="menu-icon default"> Insert Payment' +
                     '</a>' +
                     '<a class="action-item" data-action="history" data-userid="' + userId + '">' +
-                    '<span class="action-icon">📜</span> Payment History' +
+                    '<img src="/images/history.svg" alt="History" class="menu-icon default"> Payment History' +
                     '</a>' +
                     '<a class="action-item danger" data-action="remove" data-userid="' + userId + '">' +
-                    '<span class="action-icon">🗑️</span> Remove from Role' +
+                    '<img src="/images/remove.svg" alt="Remove" class="menu-icon danger"> Remove from Role' +
                     '</a>';
 
                 // Position the menu
@@ -2140,8 +2141,22 @@ FinHubAddOns.ServiceProviderComponent = {
 
             self.post("UpdateTaskStatus", data).done(function (response) {
                 toastr.success("Task status updated");
-                // Reload profile data
-                self.viewProfile(self.selectedProfile);
+
+                // Update the specific task locally instead of reloading all data
+                var taskToUpdate = self.profileData.tasks.find(function (t) {
+                    return t.TaskID === task.TaskID;
+                });
+
+                if (taskToUpdate) {
+                    taskToUpdate.Status = newStatus;
+                }
+
+                // Alternative: If you must reload, only reload tasks data specifically
+                // self.get("GetServiceProviderProfile", { userId: self.selectedProfile.UserId }).done(function (response) {
+                //     // Only update tasks, preserve other profile data sections
+                //     self.profileData.tasks = response.tasks;
+                // });
+
             }).fail(function (xhr, status, error) {
                 console.error("Error updating task:", xhr.responseText);
                 toastr.error("Error updating task status");
@@ -2181,13 +2196,13 @@ FinHubAddOns.ServiceProviderComponent = {
 
         getActionIcon: function (actionType) {
             switch (actionType) {
-                case 'Note': return '📝';
-                case 'Call': return '📞';
-                case 'Email': return '✉️';
-                case 'Meeting': return '🤝';
-                case 'Task': return '📋';
-                case 'StatusChange': return '🔄';
-                default: return '📌';
+                case 'Note': return '<img src="/images/note.svg" alt="Note" class="action-type-icon">';
+                case 'Call': return '<img src="/images/call.svg" alt="Call" class="action-type-icon">';
+                case 'Email': return '<img src="/images/email.svg" alt="Email" class="action-type-icon">';
+                case 'Meeting': return '<img src="/images/meeting.svg" alt="Meeting" class="action-type-icon">';
+                case 'Task': return '<img src="/images/task.svg" alt="Task" class="action-type-icon">';
+                case 'StatusChange': return '<img src="/images/status.svg" alt="Status Change" class="action-type-icon">';
+                default: return '<img src="/images/pin.svg" alt="Action" class="action-type-icon">';
             }
         },
 
@@ -2408,6 +2423,18 @@ FinHubAddOns.ServiceProviderComponent = {
             }).fail(function (xhr, status, error) {
                 console.error("Error loading payment statistics:", xhr.responseText);
             });
+        },
+
+        getActionIcon: function (actionType) {
+            switch (actionType) {
+                case 'Note': return '<img src="/images/note.svg" alt="Note" class="action-type-icon">';
+                case 'Call': return '<img src="/images/call.svg" alt="Call" class="action-type-icon">';
+                case 'Email': return '<img src="/images/email.svg" alt="Email" class="action-type-icon">';
+                case 'Meeting': return '<img src="/images/meeting.svg" alt="Meeting" class="action-type-icon">';
+                case 'Task': return '<img src="/images/task.svg" alt="Task" class="action-type-icon">';
+                case 'StatusChange': return '<img src="/images/status.svg" alt="Status Change" class="action-type-icon">';
+                default: return '<img src="/images/pin.svg" alt="Action" class="action-type-icon">';
+            }
         },
 
         initializeYearSelector: function () {
